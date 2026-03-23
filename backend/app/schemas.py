@@ -4,9 +4,9 @@ from pydantic import BaseModel
 
 class StudyRequest(BaseModel):
     text: str
-    mode: str = "summary"   # summary, simplified, flashcards, quiz
-    difficulty: str = "medium"  # easy, medium, hard
-    learner_type: str = "general"  # general, visual, auditory, dyslexic, adhd
+    mode: str = "summary"
+    difficulty: str = "medium"
+    learner_type: str = "general"
 
 
 class Flashcard(BaseModel):
@@ -28,3 +28,16 @@ class StudyResponse(BaseModel):
     result: str
     flashcards: Optional[List[Flashcard]] = None
     quiz: Optional[List[MultipleChoiceQuestion]] = None
+
+
+class SavedDocument(BaseModel):
+    document_id: str
+    filename: str
+    extracted_text_preview: str
+    original_length: int
+
+
+class ProcessSavedDocumentRequest(BaseModel):
+    mode: str = "summary"
+    difficulty: str = "medium"
+    learner_type: str = "general"
