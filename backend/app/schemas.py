@@ -20,6 +20,16 @@ class MultipleChoiceQuestion(BaseModel):
     answer: str
 
 
+class KeyTerm(BaseModel):
+    term: str
+    definition: str
+
+
+class StudyGuideSection(BaseModel):
+    heading: str
+    bullets: List[str]
+
+
 class StudyResponse(BaseModel):
     original_length: int
     extracted_text_preview: str
@@ -28,6 +38,8 @@ class StudyResponse(BaseModel):
     result: str
     flashcards: Optional[List[Flashcard]] = None
     quiz: Optional[List[MultipleChoiceQuestion]] = None
+    key_terms: Optional[List[KeyTerm]] = None
+    study_guide: Optional[List[StudyGuideSection]] = None
 
 
 class SavedDocument(BaseModel):

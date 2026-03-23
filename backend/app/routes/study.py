@@ -13,7 +13,12 @@ from app.schemas import (
 from app.storage import DOCUMENT_STORE
 from app.utils.file_parser import extract_text
 from app.utils.text_tools import clean_text, summarize_text, simplify_text, adapt_for_learner
-from app.utils.study_tools import generate_flashcards, generate_quiz
+from app.utils.study_tools import (
+    generate_flashcards,
+    generate_quiz,
+    extract_key_terms,
+    build_study_guide,
+)
 
 router = APIRouter(prefix="/study", tags=["study"])
 
@@ -21,6 +26,8 @@ router = APIRouter(prefix="/study", tags=["study"])
 def build_response(cleaned: str, mode: str, difficulty: str, learner_type: str) -> StudyResponse:
     flashcards = None
     quiz = None
+    key_terms = None
+    study_guide = None
 
     if mode == "summary":
         base = summarize_text(cleaned)
@@ -33,6 +40,12 @@ def build_response(cleaned: str, mode: str, difficulty: str, learner_type: str) 
     elif mode == "quiz":
         quiz = generate_quiz(cleaned)
         result = "Quiz generated successfully."
+    elif mode == "key_terms":
+        key_terms = extract_key_terms(cleaned)
+        result = "Key terms extracted successfully."
+    elif mode == "study_guide":
+        study_guide = build_study_guide(cleaned)
+        result = "Study guide generated successfully."
     else:
         raise HTTPException(status_code=400, detail="Unsupported mode.")
 
@@ -44,6 +57,8 @@ def build_response(cleaned: str, mode: str, difficulty: str, learner_type: str) 
         result=result,
         flashcards=flashcards,
         quiz=quiz,
+        key_terms=key_terms,
+        study_guide=study_guide,
     )
 
 
