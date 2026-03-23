@@ -1,0 +1,95 @@
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from app.config import UPLOAD_DIR, ALLOWED_EXTENSIONS
+from app.schemas import StudyRequest, StudyResponse
+from app.utils.file_parser import extract_text
+from app.utils.text_tools import clean_text, summarize_text, simplify_text, adapt_for_learner
+from app.utils.study_tools import generate_flashcards, generate_quiz
+
+router = APIRouter(prefix="/study", tags=["study"])
+
+
+def build_response(cleaned: str, mode: str, difficulty: str, learner_type: str) -> StudyResponse:
+    flashcards = None
+    quiz = None
+
+    if mode == "summary":
+        base = summarize_text(cleaned)
+        result = adapt_for_learner(base, learner_type, difficulty)
+    elif mode == "simplified":
+        result = simplify_text(cleaned, difficulty, learner_type)
+    elif mode == "flashcards":
+        flashcards = generate_flashcards(cleaned)
+        result = "Flashcards generated successfully."
+    elif mode == "quiz":
+        quiz = generate_quiz(cleaned)
+        result = "Quiz generated successfully."
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported mode.")
+
+    return StudyResponse(
+        original_length=len(cleaned),
+        extracted_text_preview=cleaned[:300],
+        mode=mode,
+        learner_type=learner_type,
+        result=result,
+        flashcards=flashcards,
+        quiz=quiz,
+    )
+
+
+@router.post("/process-text", response_model=StudyResponse)
+def process_text(payload: StudyRequest):
+    cleaned = clean_text(payload.text)
+
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="Text is empty after cleaning.")
+
+    return build_response(
+        cleaned=cleaned,
+        mode=payload.mode,
+        difficulty=payload.difficulty,
+        learner_type=payload.learner_type,
+    )
+
+
+@router.post("/upload-and-process", response_model=StudyResponse)
+async def upload_and_process(
+    file: UploadFile = File(...),
+    mode: str = "summary",
+    difficulty: str = "medium",
+    learner_type: str = "general",
+):
+    ext = Path(file.filename).suffix.lower()
+
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed: {sorted(ALLOWED_EXTENSIONS)}"
+        )
+
+    save_name = f"{uuid4().hex}{ext}"
+    save_path = UPLOAD_DIR / save_name
+
+    contents = await file.read()
+    save_path.write_bytes(contents)
+
+    try:
+        extracted = extract_text(save_path)
+        cleaned = clean_text(extracted)
+
+        if not cleaned:
+            raise HTTPException(status_code=400, detail="No text could be extracted from the file.")
+
+        return build_response(
+            cleaned=cleaned,
+            mode=mode,
+            difficulty=difficulty,
+            learner_type=learner_type,
+        )
+
+    finally:
+        if save_path.exists():
+            save_path.unlink(missing_ok=True)
