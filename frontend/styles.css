@@ -1,0 +1,33 @@
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    max-width: 1100px;
+}
+
+h1, h2, h3 {
+    letter-spacing: -0.02em;
+}
+
+[data-testid="stSidebar"] {
+    border-right: 1px solid rgba(255,255,255,0.08);
+}
+
+div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stMarkdownContainer"]) {
+    border-radius: 14px;
+}
+
+.stButton > button {
+    width: 100%;
+    border-radius: 12px;
+    font-weight: 600;
+    padding: 0.6rem 1rem;
+}
+
+.stDownloadButton > button {
+    border-radius: 12px;
+}
+
+div[data-testid="stExpander"] {
+    border-radius: 14px;
+    overflow: hidden;
+}
