@@ -30,6 +30,23 @@ class StudyGuideSection(BaseModel):
     bullets: List[str]
 
 
+class SessionBlock(BaseModel):
+    block_type: str
+    title: str
+    content: List[str]
+
+
+class StudySession(BaseModel):
+    title: str
+    learner_type: str
+    difficulty: str
+    estimated_minutes: int
+    overview: str
+    blocks: List[SessionBlock]
+    flashcards: List[Flashcard]
+    quiz: List[MultipleChoiceQuestion]
+
+
 class StudyResponse(BaseModel):
     original_length: int
     extracted_text_preview: str
@@ -40,6 +57,7 @@ class StudyResponse(BaseModel):
     quiz: Optional[List[MultipleChoiceQuestion]] = None
     key_terms: Optional[List[KeyTerm]] = None
     study_guide: Optional[List[StudyGuideSection]] = None
+    session: Optional[StudySession] = None
 
 
 class SavedDocument(BaseModel):
@@ -53,3 +71,16 @@ class ProcessSavedDocumentRequest(BaseModel):
     mode: str = "summary"
     difficulty: str = "medium"
     learner_type: str = "general"
+
+
+class SessionRequest(BaseModel):
+    text: str
+    learner_type: str = "general"
+    difficulty: str = "medium"
+    estimated_minutes: int = 5
+
+
+class SavedDocumentSessionRequest(BaseModel):
+    learner_type: str = "general"
+    difficulty: str = "medium"
+    estimated_minutes: int = 5

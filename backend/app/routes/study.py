@@ -9,6 +9,8 @@ from app.schemas import (
     StudyResponse,
     SavedDocument,
     ProcessSavedDocumentRequest,
+    SessionRequest,
+    SavedDocumentSessionRequest,
 )
 from app.storage import DOCUMENT_STORE
 from app.utils.file_parser import extract_text
@@ -19,6 +21,7 @@ from app.utils.study_tools import (
     extract_key_terms,
     build_study_guide,
 )
+from app.utils.session_tools import build_session
 
 router = APIRouter(prefix="/study", tags=["study"])
 
@@ -28,6 +31,7 @@ def build_response(cleaned: str, mode: str, difficulty: str, learner_type: str) 
     quiz = None
     key_terms = None
     study_guide = None
+    session = None
 
     if mode == "summary":
         base = summarize_text(cleaned)
@@ -46,6 +50,14 @@ def build_response(cleaned: str, mode: str, difficulty: str, learner_type: str) 
     elif mode == "study_guide":
         study_guide = build_study_guide(cleaned)
         result = "Study guide generated successfully."
+    elif mode == "session":
+        session = build_session(
+            text=cleaned,
+            learner_type=learner_type,
+            difficulty=difficulty,
+            estimated_minutes=5,
+        )
+        result = "Study session generated successfully."
     else:
         raise HTTPException(status_code=400, detail="Unsupported mode.")
 
@@ -59,6 +71,7 @@ def build_response(cleaned: str, mode: str, difficulty: str, learner_type: str) 
         quiz=quiz,
         key_terms=key_terms,
         study_guide=study_guide,
+        session=session,
     )
 
 
@@ -203,6 +216,56 @@ def process_saved_document(document_id: str, payload: ProcessSavedDocumentReques
         mode=payload.mode,
         difficulty=payload.difficulty,
         learner_type=payload.learner_type,
+    )
+
+
+@router.post("/session", response_model=StudyResponse)
+def create_session(payload: SessionRequest):
+    cleaned = clean_text(payload.text)
+
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="Text is empty after cleaning.")
+
+    session = build_session(
+        text=cleaned,
+        learner_type=payload.learner_type,
+        difficulty=payload.difficulty,
+        estimated_minutes=payload.estimated_minutes,
+    )
+
+    return StudyResponse(
+        original_length=len(cleaned),
+        extracted_text_preview=cleaned[:300],
+        mode="session",
+        learner_type=payload.learner_type,
+        result="Study session generated successfully.",
+        session=session,
+    )
+
+
+@router.post("/documents/{document_id}/session", response_model=StudyResponse)
+def create_session_from_document(document_id: str, payload: SavedDocumentSessionRequest):
+    doc = DOCUMENT_STORE.get(document_id)
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    cleaned = doc["text"]
+
+    session = build_session(
+        text=cleaned,
+        learner_type=payload.learner_type,
+        difficulty=payload.difficulty,
+        estimated_minutes=payload.estimated_minutes,
+    )
+
+    return StudyResponse(
+        original_length=len(cleaned),
+        extracted_text_preview=cleaned[:300],
+        mode="session",
+        learner_type=payload.learner_type,
+        result="Study session generated successfully.",
+        session=session,
     )
 
 
