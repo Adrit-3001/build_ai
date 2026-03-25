@@ -85,7 +85,7 @@ def render_audio_player(text: str, reading_cfg: dict, label: str = "Listen"):
     audio_col1, audio_col2 = st.columns([0.28, 0.72])
 
     with audio_col1:
-        if st.button(f"🔊 {label}", key=button_key, use_container_width=True):
+        if st.button(f"{label}", key=button_key, use_container_width=True):
             try:
                 st.session_state[audio_key] = synthesize_speech(text=text, voice=voice, rate=rate)
             except Exception as e:
@@ -284,10 +284,10 @@ def render_mode_output(data, mode, learner_type: str, theme: str, reading_cfg: d
             render_result_panel(result, learner_type, theme, reading_cfg)
         else:
             st.write(adapt_text_for_display(result, learner_type))
-            render_audio_player(adapt_text_for_display(result, learner_type), reading_cfg, "Listen")
+            # render_audio_player(adapt_text_for_display(result, learner_type), reading_cfg, "Listen")
 
     if data.get("key_terms"):
-        st.markdown("### Key Terms")
+        # st.markdown("### Key Terms")
         for item in data["key_terms"]:
             with st.container(border=True):
                 st.markdown(f"**{item['term']}**")
@@ -295,14 +295,14 @@ def render_mode_output(data, mode, learner_type: str, theme: str, reading_cfg: d
                 render_audio_player(item["term"] + ". " + item["definition"], reading_cfg, "Listen to key term")
 
     if data.get("flashcards"):
-        st.markdown("### Flashcards")
+        # st.markdown("### Flashcards")
         for i, card in enumerate(data["flashcards"], start=1):
             with st.expander(f"Flashcard {i}: {card['question']}"):
                 st.write(adapt_text_for_display(card["answer"], learner_type))
                 render_audio_player(card["question"] + ". " + card["answer"], reading_cfg, "Listen to flashcard")
 
     if data.get("quiz"):
-        st.markdown("### Quiz")
+        # st.markdown("### Quiz")
         for i, q in enumerate(data["quiz"], start=1):
             with st.container(border=True):
                 st.markdown(f"**Q{i}. {q['question']}**")
@@ -312,7 +312,7 @@ def render_mode_output(data, mode, learner_type: str, theme: str, reading_cfg: d
                 render_audio_player(q["question"] + ". " + " ".join(q["options"]), reading_cfg, "Listen to quiz")
 
     if data.get("study_guide"):
-        st.markdown("### Study Guide")
+        # st.markdown("### Study Guide")
         for section in data["study_guide"]:
             with st.container(border=True):
                 st.markdown(f"**{section['heading']}**")

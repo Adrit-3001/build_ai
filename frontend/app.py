@@ -230,7 +230,7 @@ with st.sidebar:
         step=1
     )
 
-    st.markdown("### Active learning mode")
+    st.markdown("### Learning mode description")
     st.info(learner_mode_description(learner_type))
 
     focus_view = False
@@ -276,20 +276,15 @@ with st.sidebar:
         ["en-US-AriaNeural", "en-US-JennyNeural", "en-US-GuyNeural"],
         index=0
     )
-    tts_rate = st.selectbox(
-        "Speech speed",
-        ["-10%", "+0%", "+10%"],
-        index=1
-    )
 
-    st.markdown("---")
-    st.markdown("### Backend status")
-    try:
-        status = check_backend()
-        st.success(f"Connected: {status['status']}")
-    except RequestException:
-        st.error("Backend not reachable")
-        st.stop()
+    # st.markdown("---")
+    # st.markdown("### Backend status")
+    # try:
+    #     status = check_backend()
+    #     st.success(f"Connected: {status['status']}")
+    # except RequestException:
+    #     st.error("Backend not reachable")
+    #     st.stop()
 
     reading_cfg = {
         "text_size_px": text_size_px,
@@ -301,7 +296,6 @@ with st.sidebar:
         "dyslexic_font_mode": dyslexic_font_mode,
         "read_aloud_enabled": read_aloud_enabled,
         "tts_voice": tts_voice,
-        "tts_rate": tts_rate,
     }
 
 apply_accessibility_settings(reading_cfg, learner_type)
@@ -362,7 +356,7 @@ with main_col:
     header_left, header_right = st.columns([1.4, 0.8])
 
     with header_left:
-        st.markdown("## 📘 Study Buddy")
+        st.markdown("## Study Companion")
         if st.session_state.filename:
             st.caption(f"Working on: {st.session_state.filename}")
 
@@ -372,64 +366,66 @@ with main_col:
             reset_workspace()
             st.rerun()
 
-    st.markdown("### Study tools")
+    def render_study_tools():
+        action_col1, action_col2 = st.columns([1.1, 1])
 
-    compact_class = "compact-controls" if learner_type == "adhd" else "regular-controls"
-    st.markdown(f'<div class="{compact_class}">', unsafe_allow_html=True)
+        with action_col1:
+            if st.button("Generate study session", use_container_width=True):
+                try:
+                    with st.spinner("Building session..."):
+                        data = create_session_from_document(
+                            st.session_state.document_id,
+                            learner_type,
+                            difficulty,
+                            estimated_minutes
+                        )
+                    st.session_state.session_data = data["session"]
+                    st.session_state.mode_data = None
+                    st.session_state.last_mode = "session"
+                    st.session_state.adhd_step_index = 0
+                    reset_timer()
+                    st.success("Session generated.")
+                except RequestException as e:
+                    st.error(f"Session generation failed: {e}")
 
-    action_col1, action_col2 = st.columns([1.1, 1])
+        with action_col2:
+            mode = st.selectbox(
+                "Quick mode",
+                ["summary", "simplified", "key_terms", "flashcards", "quiz", "study_guide"],
+                label_visibility="collapsed",
+                key="main_quick_mode"
+            )
 
-    with action_col1:
-        if st.button("Generate study session", use_container_width=True):
+        if st.button(f"Run {mode.replace('_', ' ')}", use_container_width=True, key="run_quick_mode_btn"):
             try:
-                with st.spinner("Building session..."):
-                    data = create_session_from_document(
+                with st.spinner(f"Generating {mode}..."):
+                    data = process_document_mode(
                         st.session_state.document_id,
+                        mode,
                         learner_type,
-                        difficulty,
-                        estimated_minutes
+                        difficulty
                     )
-                st.session_state.session_data = data["session"]
-                st.session_state.mode_data = None
-                st.session_state.last_mode = "session"
+                st.session_state.mode_data = data
+                st.session_state.session_data = None
+                st.session_state.last_mode = mode
                 st.session_state.adhd_step_index = 0
                 reset_timer()
-                st.success("Session generated.")
+                # st.success(f"{mode.replace('_', ' ').title()} ready.")
             except RequestException as e:
-                st.error(f"Session generation failed: {e}")
+                st.error(f"Mode generation failed: {e}")
 
-    with action_col2:
-        mode = st.selectbox(
-            "Quick mode",
-            ["summary", "simplified", "key_terms", "flashcards", "quiz", "study_guide"],
-            label_visibility="collapsed"
-        )
-
-    if st.button(f"Run {mode.replace('_', ' ')}", use_container_width=True):
-        try:
-            with st.spinner(f"Generating {mode}..."):
-                data = process_document_mode(
-                    st.session_state.document_id,
-                    mode,
-                    learner_type,
-                    difficulty
-                )
-            st.session_state.mode_data = data
-            st.session_state.session_data = None
-            st.session_state.last_mode = mode
-            st.session_state.adhd_step_index = 0
-            reset_timer()
-            st.success(f"{mode.replace('_', ' ').title()} ready.")
-        except RequestException as e:
-            st.error(f"Mode generation failed: {e}")
-
-    st.markdown("</div>", unsafe_allow_html=True)
+    # if learner_type == "adhd":
+    with st.expander("Study tools", expanded=True):
+        render_study_tools()
+    # else:
+    #     st.markdown("### Study tools")
+    #     render_study_tools()
 
     timer_open = st.session_state.timer_running or st.session_state.timer_paused or (
         st.session_state.timer_duration > 0 and st.session_state.time_remaining == 0
     )
 
-    with st.expander("⏱️ Timer", expanded=timer_open):
+    with st.expander("⏱︎ Timer", expanded=timer_open):
         timer_col1, timer_col2, timer_col3 = st.columns(3)
         session_ready = st.session_state.session_data is not None and st.session_state.last_mode == "session"
 
@@ -465,7 +461,7 @@ with main_col:
                 st.session_state.timer_running = False
                 st.session_state.timer_paused = False
                 st.session_state.timer_start_time = None
-                st.error("⏰ Time's up!")
+                st.error("Time's up!")
 
         elif st.session_state.timer_paused:
             minutes = st.session_state.time_remaining // 60
@@ -480,10 +476,10 @@ with main_col:
         elif st.session_state.timer_duration > 0 and st.session_state.time_remaining == 0:
             st.metric("Time Remaining", "00:00")
             st.progress(1.0)
-            st.success("Session complete 🎉")
+            st.success("Session complete – great job!")
             st.info("Nice work. Review your flashcards or try the quiz next.")
 
-    st.markdown("### Output")
+    # st.markdown("### Output")
 
     if st.session_state.last_mode == "session" and st.session_state.session_data:
         render_session(
