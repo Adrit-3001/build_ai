@@ -423,3 +423,86 @@ div[data-testid="metric-container"] {
 .theme-classic .bg-fx-wrap {
     display: none;
 }
+
+.workspace-shell {
+    max-width: 980px;
+    margin: 0 auto;
+}
+
+.compact-controls .stButton > button {
+    padding: 0.5rem 0.85rem !important;
+    font-size: 0.95rem !important;
+    border-radius: 14px !important;
+}
+
+.compact-controls div[data-baseweb="select"] > div {
+    min-height: 42px !important;
+}
+
+.reader-panel {
+    max-width: var(--reader-max-width);
+    font-size: var(--reader-text-size);
+    line-height: var(--reader-line-height);
+}
+
+.reader-panel p {
+    margin-top: 0;
+    margin-bottom: var(--reader-paragraph-gap);
+    text-align: left;
+}
+
+.dyslexic-font-mode .reader-panel,
+.dyslexic-font-mode .focus-item-card,
+.dyslexic-font-mode .stMarkdown,
+.dyslexic-font-mode p,
+.dyslexic-font-mode li {
+    font-family: "OpenDyslexic", "Atkinson Hyperlegible", "Verdana", "Tahoma", "Arial", sans-serif !important;
+    letter-spacing: 0.025em;
+    word-spacing: 0.08em;
+}
+
+.reader-tint-default { }
+
+.reader-tint-warm {
+    background: linear-gradient(135deg, rgba(125, 100, 40, 0.16), rgba(185, 160, 110, 0.10)) !important;
+    border-color: rgba(225, 200, 140, 0.28) !important;
+}
+
+.reader-tint-cool {
+    background: linear-gradient(135deg, rgba(55, 90, 120, 0.18), rgba(90, 135, 165, 0.10)) !important;
+    border-color: rgba(145, 190, 225, 0.28) !important;
+}
+
+.reader-tint-soft-dark {
+    background: linear-gradient(135deg, rgba(42, 48, 60, 0.26), rgba(30, 38, 52, 0.18)) !important;
+    border-color: rgba(145, 155, 175, 0.24) !important;
+}
+
+.focus-banner {
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(251,191,36,0.28);
+    font-weight: 700;
+}
+
+.focus-step-card {
+    border-radius: 18px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+}
+
+.focus-step-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.focus-item-card {
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    line-height: 1.7;
+}

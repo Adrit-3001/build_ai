@@ -27,11 +27,31 @@ def load_css():
         pass
 
 
+def force_sidebar_collapsed():
+    st.markdown(
+        """
+        <script>
+        (function () {
+            const tryClose = () => {
+                const rootDoc = window.parent.document;
+                const closeBtn = rootDoc.querySelector('button[aria-label="Close sidebar"]');
+                if (closeBtn) closeBtn.click();
+            };
+            setTimeout(tryClose, 50);
+            setTimeout(tryClose, 250);
+            setTimeout(tryClose, 700);
+        })();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def learner_mode_description(learner_type: str) -> str:
     descriptions = {
         "general": "Balanced layout with a standard study flow.",
-        "adhd": "Focus mode: one step at a time, fewer distractions, clearer next actions.",
-        "dyslexic": "Reader mode: spacing controls, reading-width control, and tinted reading panels.",
+        "adhd": "Focus mode with one clear task at a time, reduced overload, and visible progress.",
+        "dyslexic": "Reader mode with spacing controls, softer reading presets, and cleaner text presentation.",
         "visual": "Grouped information for scanning and section-based review.",
         "auditory": "Spoken-style phrasing for listening and verbal review.",
     }
@@ -54,6 +74,8 @@ def apply_theme(theme: str):
 
 
 def apply_accessibility_settings(reading_cfg: dict, learner_type: str):
+    dyslexic_font_mode = "1" if reading_cfg.get("dyslexic_font_mode", False) else "0"
+
     st.markdown(
         f"""
         <style>
@@ -68,6 +90,12 @@ def apply_accessibility_settings(reading_cfg: dict, learner_type: str):
         const root = window.parent.document.documentElement;
         root.classList.remove('mode-general', 'mode-adhd', 'mode-dyslexic', 'mode-visual', 'mode-auditory');
         root.classList.add('mode-{learner_type}');
+
+        if ({dyslexic_font_mode}) {{
+            root.classList.add('dyslexic-font-mode');
+        }} else {{
+            root.classList.remove('dyslexic-font-mode');
+        }}
         </script>
         """,
         unsafe_allow_html=True,
@@ -95,6 +123,7 @@ def render_background_fx(theme: str):
 
 
 load_css()
+force_sidebar_collapsed()
 
 if "document_id" not in st.session_state:
     st.session_state.document_id = None
@@ -207,7 +236,7 @@ with st.sidebar:
     focus_view = False
     if learner_type == "adhd":
         focus_view = st.toggle("Use focus view", value=True)
-        st.caption("Shows one session step at a time and hides extra overload.")
+        st.caption("Keeps the focus on the current content while leaving controls available.")
 
     st.markdown("### Reading controls")
 
@@ -222,24 +251,36 @@ with st.sidebar:
     max_width_px = st.slider("Reading width", 560, 1000, default_width, 20)
 
     reader_tint = "default"
+    dyslexic_font_mode = False
     if learner_type == "dyslexic":
-        reader_tint = st.selectbox(
-            "Reader background",
-            ["default", "warm", "cool", "soft-dark"],
+        st.markdown("### Dyslexia-friendly options")
+        reader_preset = st.selectbox(
+            "Reading preset",
+            ["Comfort", "Soft Cream", "Cool Paper", "Dark Reader"],
             index=0
         )
 
-    read_aloud_enabled = st.toggle("Show read aloud buttons", value=True)
+        preset_map = {
+            "Comfort": "default",
+            "Soft Cream": "warm",
+            "Cool Paper": "cool",
+            "Dark Reader": "soft-dark",
+        }
+        reader_tint = preset_map[reader_preset]
+        dyslexic_font_mode = st.toggle("Use dyslexia-friendly font style", value=True)
 
-    reading_cfg = {
-        "text_size_px": text_size_px,
-        "line_height": line_height,
-        "paragraph_gap_rem": paragraph_gap_rem,
-        "max_width_px": max_width_px,
-        "reader_tint": reader_tint,
-        "read_aloud_enabled": read_aloud_enabled,
-        "focus_view": focus_view,
-    }
+    st.markdown("### Read aloud")
+    read_aloud_enabled = st.toggle("Enable generated audio", value=True)
+    tts_voice = st.selectbox(
+        "Voice",
+        ["en-US-AriaNeural", "en-US-JennyNeural", "en-US-GuyNeural"],
+        index=0
+    )
+    tts_rate = st.selectbox(
+        "Speech speed",
+        ["-10%", "+0%", "+10%"],
+        index=1
+    )
 
     st.markdown("---")
     st.markdown("### Backend status")
@@ -249,6 +290,19 @@ with st.sidebar:
     except RequestException:
         st.error("Backend not reachable")
         st.stop()
+
+    reading_cfg = {
+        "text_size_px": text_size_px,
+        "line_height": line_height,
+        "paragraph_gap_rem": paragraph_gap_rem,
+        "max_width_px": max_width_px,
+        "reader_tint": reader_tint,
+        "focus_view": focus_view,
+        "dyslexic_font_mode": dyslexic_font_mode,
+        "read_aloud_enabled": read_aloud_enabled,
+        "tts_voice": tts_voice,
+        "tts_rate": tts_rate,
+    }
 
 apply_accessibility_settings(reading_cfg, learner_type)
 
@@ -264,7 +318,7 @@ if st.session_state.document_id is None:
             unsafe_allow_html=True,
         )
         st.markdown(
-            '<p class="landing-subtitle">Upload your notes first. Open the sidebar anytime if you want to adjust learner type, difficulty, theme, session length, or reading controls.</p>',
+            '<p class="landing-subtitle">Upload your notes first. Open the sidebar anytime if you want to adjust learner type, difficulty, theme, session length, audio, or reading controls.</p>',
             unsafe_allow_html=True,
         )
 
@@ -300,27 +354,32 @@ if st.session_state.document_id is None:
     st.stop()
 
 
-_, main_col, _ = st.columns([0.8, 2.4, 0.8])
+_, main_col, _ = st.columns([0.8, 2.5, 0.8])
 
 with main_col:
-    top_left, top_right = st.columns([1, 1])
+    st.markdown('<div class="workspace-shell">', unsafe_allow_html=True)
 
-    with top_left:
+    header_left, header_right = st.columns([1.4, 0.8])
+
+    with header_left:
         st.markdown("## 📘 Study Buddy")
         if st.session_state.filename:
             st.caption(f"Working on: {st.session_state.filename}")
 
-    with top_right:
+    with header_right:
         st.markdown('<div class="top-actions-space"></div>', unsafe_allow_html=True)
         if st.button("← Back to upload", use_container_width=True):
             reset_workspace()
             st.rerun()
 
-    st.markdown("### Study Session")
+    st.markdown("### Study tools")
 
-    generate_col, mode_col = st.columns([1.2, 1])
+    compact_class = "compact-controls" if learner_type == "adhd" else "regular-controls"
+    st.markdown(f'<div class="{compact_class}">', unsafe_allow_html=True)
 
-    with generate_col:
+    action_col1, action_col2 = st.columns([1.1, 1])
+
+    with action_col1:
         if st.button("Generate study session", use_container_width=True):
             try:
                 with st.spinner("Building session..."):
@@ -339,7 +398,7 @@ with main_col:
             except RequestException as e:
                 st.error(f"Session generation failed: {e}")
 
-    with mode_col:
+    with action_col2:
         mode = st.selectbox(
             "Quick mode",
             ["summary", "simplified", "key_terms", "flashcards", "quiz", "study_guide"],
@@ -364,63 +423,65 @@ with main_col:
         except RequestException as e:
             st.error(f"Mode generation failed: {e}")
 
-    st.markdown("### Timer")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    timer_col1, timer_col2, timer_col3 = st.columns(3)
-    session_ready = st.session_state.session_data is not None and st.session_state.last_mode == "session"
+    timer_open = st.session_state.timer_running or st.session_state.timer_paused or (
+        st.session_state.timer_duration > 0 and st.session_state.time_remaining == 0
+    )
 
-    with timer_col1:
-        if st.button("Start", use_container_width=True, disabled=not session_ready):
-            start_timer(estimated_minutes)
+    with st.expander("⏱️ Timer", expanded=timer_open):
+        timer_col1, timer_col2, timer_col3 = st.columns(3)
+        session_ready = st.session_state.session_data is not None and st.session_state.last_mode == "session"
 
-    with timer_col2:
-        if st.button("Pause", use_container_width=True, disabled=not st.session_state.timer_running):
-            pause_timer()
+        with timer_col1:
+            if st.button("Start", use_container_width=True, disabled=not session_ready):
+                start_timer(estimated_minutes)
 
-    with timer_col3:
-        if st.button("Reset", use_container_width=True):
-            reset_timer()
+        with timer_col2:
+            if st.button("Pause", use_container_width=True, disabled=not st.session_state.timer_running):
+                pause_timer()
 
-    if not session_ready:
-        st.caption("Generate a study session before starting the timer.")
+        with timer_col3:
+            if st.button("Reset", use_container_width=True):
+                reset_timer()
 
-    if st.session_state.timer_running and st.session_state.timer_start_time is not None:
-        elapsed = int(time.time() - st.session_state.timer_start_time)
-        remaining = max(0, st.session_state.timer_duration - elapsed)
-        st.session_state.time_remaining = remaining
+        if not session_ready:
+            st.caption("Generate a study session before starting the timer.")
 
-        st.markdown("### ⏱️ Session Timer")
-        minutes = remaining // 60
-        seconds = remaining % 60
-        st.metric("Time Remaining", f"{minutes:02d}:{seconds:02d}")
+        if st.session_state.timer_running and st.session_state.timer_start_time is not None:
+            elapsed = int(time.time() - st.session_state.timer_start_time)
+            remaining = max(0, st.session_state.timer_duration - elapsed)
+            st.session_state.time_remaining = remaining
 
-        if st.session_state.timer_duration > 0:
-            progress = 1 - (remaining / st.session_state.timer_duration)
-            st.progress(min(max(progress, 0.0), 1.0))
+            minutes = remaining // 60
+            seconds = remaining % 60
+            st.metric("Time Remaining", f"{minutes:02d}:{seconds:02d}")
 
-        if remaining == 0:
-            st.session_state.timer_running = False
-            st.session_state.timer_paused = False
-            st.session_state.timer_start_time = None
-            st.error("⏰ Time's up!")
+            if st.session_state.timer_duration > 0:
+                progress = 1 - (remaining / st.session_state.timer_duration)
+                st.progress(min(max(progress, 0.0), 1.0))
 
-    elif st.session_state.timer_paused:
-        st.markdown("### ⏱️ Session Timer")
-        minutes = st.session_state.time_remaining // 60
-        seconds = st.session_state.time_remaining % 60
-        st.metric("Time Remaining", f"{minutes:02d}:{seconds:02d}")
-        st.warning("Timer paused.")
+            if remaining == 0:
+                st.session_state.timer_running = False
+                st.session_state.timer_paused = False
+                st.session_state.timer_start_time = None
+                st.error("⏰ Time's up!")
 
-        if st.session_state.timer_duration > 0:
-            elapsed_fraction = 1 - (st.session_state.time_remaining / st.session_state.timer_duration)
-            st.progress(min(max(elapsed_fraction, 0.0), 1.0))
+        elif st.session_state.timer_paused:
+            minutes = st.session_state.time_remaining // 60
+            seconds = st.session_state.time_remaining % 60
+            st.metric("Time Remaining", f"{minutes:02d}:{seconds:02d}")
+            st.warning("Timer paused.")
 
-    elif st.session_state.timer_duration > 0 and st.session_state.time_remaining == 0:
-        st.markdown("### ⏱️ Session Timer")
-        st.metric("Time Remaining", "00:00")
-        st.progress(1.0)
-        st.success("Session complete 🎉")
-        st.info("Nice work. Review your flashcards or try the quiz next.")
+            if st.session_state.timer_duration > 0:
+                elapsed_fraction = 1 - (st.session_state.time_remaining / st.session_state.timer_duration)
+                st.progress(min(max(elapsed_fraction, 0.0), 1.0))
+
+        elif st.session_state.timer_duration > 0 and st.session_state.time_remaining == 0:
+            st.metric("Time Remaining", "00:00")
+            st.progress(1.0)
+            st.success("Session complete 🎉")
+            st.info("Nice work. Review your flashcards or try the quiz next.")
 
     st.markdown("### Output")
 
@@ -442,6 +503,8 @@ with main_col:
         )
     else:
         st.info("Generate a study session or run a study mode to see your output here.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 if st.session_state.timer_running:
     time.sleep(1)

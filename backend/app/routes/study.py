@@ -2,6 +2,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from app.config import UPLOAD_DIR, ALLOWED_EXTENSIONS, SMART_MODE
 from app.schemas import (
@@ -28,8 +30,15 @@ from app.utils.study_tools import (
 )
 from app.utils.session_tools import build_session
 from app.utils.llm_tools import smart_generate
+from app.utils.tts_tools import synthesize_to_file
 
 router = APIRouter(prefix="/study", tags=["study"])
+
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = "en-US-AriaNeural"
+    rate: str = "+0%"
 
 
 def safe_study_response(
@@ -175,6 +184,24 @@ def build_response(
         difficulty=difficulty,
         learner_type=learner_type,
         estimated_minutes=estimated_minutes,
+    )
+
+
+@router.post("/tts")
+def synthesize_speech(payload: TTSRequest):
+    try:
+        audio_path = synthesize_to_file(
+            text=payload.text,
+            voice=payload.voice,
+            rate=payload.rate,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS generation failed: {e}")
+
+    return FileResponse(
+        path=audio_path,
+        media_type="audio/mpeg",
+        filename=audio_path.name,
     )
 
 

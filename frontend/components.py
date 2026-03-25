@@ -1,8 +1,7 @@
-import base64
-import hashlib
-import html
 import re
 import streamlit as st
+
+from api import synthesize_speech
 
 
 def learner_badge(learner_type: str) -> str:
@@ -69,76 +68,32 @@ def render_mode_banner(learner_type: str, theme: str):
     )
 
 
-def render_read_aloud_button(text: str, label: str = "🔊 Read aloud"):
+def render_audio_player(text: str, reading_cfg: dict, label: str = "Listen"):
     if not text or not isinstance(text, str):
         return
 
-    button_id = "speak_" + hashlib.md5((label + text[:120]).encode("utf-8")).hexdigest()
-    encoded_text = base64.b64encode(text.encode("utf-8")).decode("ascii")
-    safe_label = html.escape(label)
+    if not reading_cfg.get("read_aloud_enabled", False):
+        return
 
-    st.markdown(
-        f"""
-        <div class="read-aloud-wrap">
-            <button id="{button_id}" class="read-aloud-btn" type="button">{safe_label}</button>
-        </div>
-        <script>
-        (function() {{
-            const btn = document.getElementById("{button_id}");
-            if (!btn || btn.dataset.bound === "1") return;
-            btn.dataset.bound = "1";
+    voice = reading_cfg.get("tts_voice", "en-US-AriaNeural")
+    rate = reading_cfg.get("tts_rate", "+0%")
 
-            const decodeText = () => {{
-                try {{
-                    return atob("{encoded_text}");
-                }} catch (e) {{
-                    return "";
-                }}
-            }};
+    base_key = f"{label}_{hash((text[:120], voice, rate))}"
+    button_key = f"btn_{base_key}"
+    audio_key = f"audio_{base_key}"
 
-            const pickVoice = () => {{
-                const voices = window.speechSynthesis.getVoices() || [];
-                if (!voices.length) return null;
+    audio_col1, audio_col2 = st.columns([0.28, 0.72])
 
-                const preferred =
-                    voices.find(v => /en/i.test(v.lang) && /female|samantha|ava|zira|aria|natural/i.test(v.name)) ||
-                    voices.find(v => /en/i.test(v.lang)) ||
-                    voices[0];
+    with audio_col1:
+        if st.button(f"🔊 {label}", key=button_key, use_container_width=True):
+            try:
+                st.session_state[audio_key] = synthesize_speech(text=text, voice=voice, rate=rate)
+            except Exception as e:
+                st.error(f"Audio generation failed: {e}")
 
-                return preferred || null;
-            }};
-
-            const speak = () => {{
-                try {{
-                    const text = decodeText();
-                    if (!text) return;
-
-                    window.speechSynthesis.cancel();
-
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    const voice = pickVoice();
-                    if (voice) utterance.voice = voice;
-
-                    utterance.rate = 0.95;
-                    utterance.pitch = 1.0;
-                    utterance.volume = 1.0;
-
-                    window.speechSynthesis.speak(utterance);
-                }} catch (e) {{
-                    console.log("Read aloud failed:", e);
-                }}
-            }};
-
-            btn.addEventListener("click", speak);
-
-            if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {{
-                window.speechSynthesis.onvoiceschanged = function() {{}};
-            }}
-        }})();
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
+    with audio_col2:
+        if audio_key in st.session_state:
+            st.audio(st.session_state[audio_key], format="audio/mp3")
 
 
 def render_result_panel(text: str, learner_type: str, theme: str, reading_cfg: dict):
@@ -159,7 +114,13 @@ def render_result_panel(text: str, learner_type: str, theme: str, reading_cfg: d
         tint = reading_cfg.get("reader_tint", "default")
         tint_class = f" reader-tint-{tint}"
 
-    html_text = html.escape(display_text).replace("\n\n", "</p><p>").replace("\n", "<br>")
+    html_text = (
+        display_text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\n\n", "</p><p>")
+        .replace("\n", "<br>")
+    )
     html_text = f"<p>{html_text}</p>"
 
     st.markdown(
@@ -171,12 +132,11 @@ def render_result_panel(text: str, learner_type: str, theme: str, reading_cfg: d
         unsafe_allow_html=True
     )
 
-    if reading_cfg.get("read_aloud_enabled", False):
-        render_read_aloud_button(display_text)
+    render_audio_player(display_text, reading_cfg, "Listen")
 
 
 def render_focus_block(block: dict, learner_type: str, theme: str, reading_cfg: dict):
-    block_title = html.escape(block.get("title", "Step"))
+    block_title = block.get("title", "Step")
     content = block.get("content", [])
     panel_theme = "adhd-panel-playful" if theme == "playful" else "adhd-panel-classic"
 
@@ -189,19 +149,57 @@ def render_focus_block(block: dict, learner_type: str, theme: str, reading_cfg: 
         unsafe_allow_html=True
     )
 
+    combined_audio = [block_title]
+
     if content:
         for item in content[:3]:
             display = adapt_text_for_display(item, learner_type)
             st.markdown(
                 f"""
                 <div class="focus-item-card">
-                    {html.escape(display)}
+                    {display.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")}
                 </div>
                 """,
                 unsafe_allow_html=True
             )
-            if reading_cfg.get("read_aloud_enabled", False):
-                render_read_aloud_button(display, "🔊 Read this step")
+            combined_audio.append(display)
+
+    render_audio_player(". ".join(combined_audio), reading_cfg, "Listen to step")
+
+
+def render_adhd_practice(session: dict, step_index: int, reading_cfg: dict):
+    flashcards = session.get("flashcards", [])
+    quiz = session.get("quiz", [])
+
+    practice_col1, practice_col2 = st.columns(2)
+
+    with practice_col1:
+        if flashcards:
+            idx = min(step_index, len(flashcards) - 1)
+            card = flashcards[idx]
+            with st.expander("Flashcard prompt"):
+                st.write(card["question"])
+                st.caption(card["answer"])
+                render_audio_player(
+                    card["question"] + ". " + card["answer"],
+                    reading_cfg,
+                    "Listen to flashcard"
+                )
+
+    with practice_col2:
+        if quiz:
+            idx = min(step_index, len(quiz) - 1)
+            q = quiz[idx]
+            with st.expander("Quick check"):
+                st.write(q["question"])
+                for option in q["options"]:
+                    st.markdown(f"- {option}")
+                st.caption(f"Answer: {q['answer']}")
+                render_audio_player(
+                    q["question"] + ". " + " ".join(q["options"]),
+                    reading_cfg,
+                    "Listen to quiz"
+                )
 
 
 def render_session(session, learner_type: str, theme: str, reading_cfg: dict, adhd_step_index: int = 0):
@@ -228,9 +226,10 @@ def render_session(session, learner_type: str, theme: str, reading_cfg: dict, ad
             current_block = blocks[safe_index]
 
             st.markdown(
-                f'<div class="focus-banner">Focus mode: one step at a time • Step {safe_index + 1} of {len(blocks)}</div>',
+                f'<div class="focus-banner">Focus mode • Step {safe_index + 1} of {len(blocks)}</div>',
                 unsafe_allow_html=True
             )
+            st.progress((safe_index + 1) / len(blocks))
 
             nav_col1, nav_col2, nav_col3 = st.columns(3)
             with nav_col1:
@@ -246,66 +245,22 @@ def render_session(session, learner_type: str, theme: str, reading_cfg: dict, ad
                     st.session_state.adhd_step_index += 1
                     st.rerun()
 
-            st.markdown("### Current Step")
+            st.markdown("### Do this now")
             render_focus_block(current_block, learner_type, theme, reading_cfg)
 
-        st.markdown("### Quick Practice")
-        flashcards = session.get("flashcards", [])
-        quiz = session.get("quiz", [])
-
-        practice_col1, practice_col2 = st.columns(2)
-        with practice_col1:
-            if flashcards:
-                idx = min(adhd_step_index, len(flashcards) - 1)
-                with st.expander("Flashcard prompt"):
-                    st.write(flashcards[idx]["question"])
-                    st.caption(flashcards[idx]["answer"])
-                    if reading_cfg.get("read_aloud_enabled", False):
-                        render_read_aloud_button(
-                            flashcards[idx]["question"] + ". " + flashcards[idx]["answer"],
-                            "🔊 Read flashcard"
-                        )
-
-        with practice_col2:
-            if quiz:
-                idx = min(adhd_step_index, len(quiz) - 1)
-                with st.expander("Quick check"):
-                    q = quiz[idx]
-                    st.write(q["question"])
-                    for option in q["options"]:
-                        st.markdown(f"- {option}")
-                    st.caption(f"Answer: {q['answer']}")
-                    if reading_cfg.get("read_aloud_enabled", False):
-                        render_read_aloud_button(
-                            q["question"] + ". " + " ".join(q["options"]),
-                            "🔊 Read quiz"
-                        )
+            st.markdown("### Quick practice")
+            render_adhd_practice(session, safe_index, reading_cfg)
         return
 
     st.markdown("### Overview")
     render_result_panel(overview, learner_type, theme, reading_cfg)
-
-    if blocks:
-        st.markdown("### Session Flow")
-        for block in blocks:
-            with st.container(border=True):
-                st.markdown(f"#### {block['title']}")
-                if learner_type == "visual":
-                    cols = st.columns(2)
-                    for idx, item in enumerate(block["content"]):
-                        with cols[idx % 2]:
-                            st.markdown(f"- {adapt_text_for_display(item, learner_type)}")
-                else:
-                    for item in block["content"]:
-                        st.markdown(f"- {adapt_text_for_display(item, learner_type)}")
 
     if session.get("flashcards"):
         st.markdown("### Flashcards")
         for i, card in enumerate(session["flashcards"], start=1):
             with st.expander(f"Flashcard {i}: {card['question']}"):
                 st.write(adapt_text_for_display(card["answer"], learner_type))
-                if reading_cfg.get("read_aloud_enabled", False):
-                    render_read_aloud_button(card["question"] + ". " + card["answer"], "🔊 Read flashcard")
+                render_audio_player(card["question"] + ". " + card["answer"], reading_cfg, "Listen to flashcard")
 
     if session.get("quiz"):
         st.markdown("### Quiz")
@@ -315,8 +270,7 @@ def render_session(session, learner_type: str, theme: str, reading_cfg: dict, ad
                 for option in q["options"]:
                     st.markdown(f"- {adapt_text_for_display(option, learner_type)}")
                 st.caption(f"Answer: {adapt_text_for_display(q['answer'], learner_type)}")
-                if reading_cfg.get("read_aloud_enabled", False):
-                    render_read_aloud_button(q["question"] + ". " + " ".join(q["options"]), "🔊 Read quiz")
+                render_audio_player(q["question"] + ". " + " ".join(q["options"]), reading_cfg, "Listen to quiz")
 
 
 def render_mode_output(data, mode, learner_type: str, theme: str, reading_cfg: dict):
@@ -330,8 +284,7 @@ def render_mode_output(data, mode, learner_type: str, theme: str, reading_cfg: d
             render_result_panel(result, learner_type, theme, reading_cfg)
         else:
             st.write(adapt_text_for_display(result, learner_type))
-            if reading_cfg.get("read_aloud_enabled", False):
-                render_read_aloud_button(adapt_text_for_display(result, learner_type))
+            render_audio_player(adapt_text_for_display(result, learner_type), reading_cfg, "Listen")
 
     if data.get("key_terms"):
         st.markdown("### Key Terms")
@@ -339,16 +292,14 @@ def render_mode_output(data, mode, learner_type: str, theme: str, reading_cfg: d
             with st.container(border=True):
                 st.markdown(f"**{item['term']}**")
                 st.write(adapt_text_for_display(item["definition"], learner_type))
-                if reading_cfg.get("read_aloud_enabled", False):
-                    render_read_aloud_button(item["term"] + ". " + item["definition"], "🔊 Read key term")
+                render_audio_player(item["term"] + ". " + item["definition"], reading_cfg, "Listen to key term")
 
     if data.get("flashcards"):
         st.markdown("### Flashcards")
         for i, card in enumerate(data["flashcards"], start=1):
             with st.expander(f"Flashcard {i}: {card['question']}"):
                 st.write(adapt_text_for_display(card["answer"], learner_type))
-                if reading_cfg.get("read_aloud_enabled", False):
-                    render_read_aloud_button(card["question"] + ". " + card["answer"], "🔊 Read flashcard")
+                render_audio_player(card["question"] + ". " + card["answer"], reading_cfg, "Listen to flashcard")
 
     if data.get("quiz"):
         st.markdown("### Quiz")
@@ -358,8 +309,7 @@ def render_mode_output(data, mode, learner_type: str, theme: str, reading_cfg: d
                 for option in q["options"]:
                     st.markdown(f"- {adapt_text_for_display(option, learner_type)}")
                 st.caption(f"Answer: {adapt_text_for_display(q['answer'], learner_type)}")
-                if reading_cfg.get("read_aloud_enabled", False):
-                    render_read_aloud_button(q["question"] + ". " + " ".join(q["options"]), "🔊 Read quiz")
+                render_audio_player(q["question"] + ". " + " ".join(q["options"]), reading_cfg, "Listen to quiz")
 
     if data.get("study_guide"):
         st.markdown("### Study Guide")
@@ -371,5 +321,4 @@ def render_mode_output(data, mode, learner_type: str, theme: str, reading_cfg: d
                     display = adapt_text_for_display(bullet, learner_type)
                     st.markdown(f"- {display}")
                     bullets_text.append(display)
-                if reading_cfg.get("read_aloud_enabled", False):
-                    render_read_aloud_button(section["heading"] + ". " + " ".join(bullets_text), "🔊 Read section")
+                render_audio_player(section["heading"] + ". " + " ".join(bullets_text), reading_cfg, "Listen to section")
