@@ -1,6 +1,6 @@
 from pathlib import Path
 import fitz  # PyMuPDF
-from PIL import Image
+from PIL import Image, ImageOps
 import pytesseract
 
 
@@ -21,7 +21,23 @@ def extract_text_from_pdf(file_path: Path) -> str:
 
 def extract_text_from_image(file_path: Path) -> str:
     image = Image.open(file_path)
-    return pytesseract.image_to_string(image).strip()
+
+    # Handle PNG transparency / palette / uncommon modes
+    if image.mode in ("RGBA", "LA", "P"):
+        background = Image.new("RGB", image.size, (255, 255, 255))
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+        background.paste(image, mask=image.split()[-1])
+        image = background
+    elif image.mode not in ("RGB", "L"):
+        image = image.convert("RGB")
+
+    # Normalize orientation
+    image = ImageOps.exif_transpose(image)
+
+    # OCR
+    text = pytesseract.image_to_string(image).strip()
+    return text
 
 
 def extract_text(file_path: Path) -> str:

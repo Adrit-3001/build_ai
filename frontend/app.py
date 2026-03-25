@@ -14,7 +14,8 @@ from components import render_session, render_mode_output
 st.set_page_config(
     page_title="Study Buddy",
     page_icon="📘",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
 
@@ -29,8 +30,8 @@ def load_css():
 def learner_mode_description(learner_type: str) -> str:
     descriptions = {
         "general": "Balanced layout with a standard study flow.",
-        "adhd": "Shorter chunks, faster scanning, and clearer focus points.",
-        "dyslexic": "Cleaner spacing, simpler reading flow, and reduced density.",
+        "adhd": "Focus mode: one step at a time, fewer distractions, clearer next actions.",
+        "dyslexic": "Reader mode: spacing controls, reading-width control, and tinted reading panels.",
         "visual": "Grouped information for scanning and section-based review.",
         "auditory": "Spoken-style phrasing for listening and verbal review.",
     }
@@ -50,6 +51,27 @@ def apply_theme(theme: str):
         unsafe_allow_html=True,
     )
     st.markdown(f'<div class="{theme_class}"></div>', unsafe_allow_html=True)
+
+
+def apply_accessibility_settings(reading_cfg: dict, learner_type: str):
+    st.markdown(
+        f"""
+        <style>
+        :root {{
+            --reader-text-size: {reading_cfg["text_size_px"]}px;
+            --reader-line-height: {reading_cfg["line_height"]};
+            --reader-paragraph-gap: {reading_cfg["paragraph_gap_rem"]}rem;
+            --reader-max-width: {reading_cfg["max_width_px"]}px;
+        }}
+        </style>
+        <script>
+        const root = window.parent.document.documentElement;
+        root.classList.remove('mode-general', 'mode-adhd', 'mode-dyslexic', 'mode-visual', 'mode-auditory');
+        root.classList.add('mode-{learner_type}');
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_background_fx(theme: str):
@@ -84,6 +106,8 @@ if "mode_data" not in st.session_state:
     st.session_state.mode_data = None
 if "last_mode" not in st.session_state:
     st.session_state.last_mode = None
+if "adhd_step_index" not in st.session_state:
+    st.session_state.adhd_step_index = 0
 
 if "timer_running" not in st.session_state:
     st.session_state.timer_running = False
@@ -103,6 +127,16 @@ def reset_timer():
     st.session_state.timer_duration = 0
     st.session_state.time_remaining = 0
     st.session_state.timer_paused = False
+
+
+def reset_workspace():
+    st.session_state.document_id = None
+    st.session_state.filename = None
+    st.session_state.session_data = None
+    st.session_state.mode_data = None
+    st.session_state.last_mode = None
+    st.session_state.adhd_step_index = 0
+    reset_timer()
 
 
 def start_timer(minutes: int):
@@ -146,9 +180,6 @@ with st.sidebar:
 apply_theme(theme)
 render_background_fx(theme)
 
-st.title("📘 Study Buddy")
-st.caption("Turn your notes into a cleaner, more adaptive study experience.")
-
 with st.sidebar:
     learner_type = st.selectbox(
         "Learner type",
@@ -173,6 +204,43 @@ with st.sidebar:
     st.markdown("### Active learning mode")
     st.info(learner_mode_description(learner_type))
 
+    focus_view = False
+    if learner_type == "adhd":
+        focus_view = st.toggle("Use focus view", value=True)
+        st.caption("Shows one session step at a time and hides extra overload.")
+
+    st.markdown("### Reading controls")
+
+    default_text_size = 20 if learner_type == "dyslexic" else 17
+    default_line_height = 2.0 if learner_type == "dyslexic" else 1.75
+    default_paragraph_gap = 1.25 if learner_type == "dyslexic" else 0.85
+    default_width = 760 if learner_type == "dyslexic" else 860
+
+    text_size_px = st.slider("Text size", 15, 28, default_text_size, 1)
+    line_height = st.slider("Line spacing", 1.4, 2.4, default_line_height, 0.05)
+    paragraph_gap_rem = st.slider("Paragraph spacing", 0.4, 2.0, default_paragraph_gap, 0.05)
+    max_width_px = st.slider("Reading width", 560, 1000, default_width, 20)
+
+    reader_tint = "default"
+    if learner_type == "dyslexic":
+        reader_tint = st.selectbox(
+            "Reader background",
+            ["default", "warm", "cool", "soft-dark"],
+            index=0
+        )
+
+    read_aloud_enabled = st.toggle("Show read aloud buttons", value=True)
+
+    reading_cfg = {
+        "text_size_px": text_size_px,
+        "line_height": line_height,
+        "paragraph_gap_rem": paragraph_gap_rem,
+        "max_width_px": max_width_px,
+        "reader_tint": reader_tint,
+        "read_aloud_enabled": read_aloud_enabled,
+        "focus_view": focus_view,
+    }
+
     st.markdown("---")
     st.markdown("### Backend status")
     try:
@@ -182,36 +250,77 @@ with st.sidebar:
         st.error("Backend not reachable")
         st.stop()
 
-left, right = st.columns([1, 1.35], gap="large")
+apply_accessibility_settings(reading_cfg, learner_type)
 
-with left:
-    st.markdown("## Upload Notes")
-    uploaded_file = st.file_uploader(
-        "Upload a PDF, TXT, or image",
-        type=["pdf", "txt", "png", "jpg", "jpeg"]
-    )
 
-    if uploaded_file is not None:
-        if st.button("Save document", use_container_width=True):
-            try:
-                with st.spinner("Uploading and extracting text..."):
-                    result = upload_document(uploaded_file)
-                st.session_state.document_id = result["document_id"]
-                st.session_state.filename = result["filename"]
-                st.session_state.session_data = None
-                st.session_state.mode_data = None
-                st.session_state.last_mode = None
-                reset_timer()
-                st.success(f"Saved: {result['filename']}")
-            except RequestException as e:
-                st.error(f"Upload failed: {e}")
+if st.session_state.document_id is None:
+    _, center_col, _ = st.columns([1, 2.2, 1])
 
-    if st.session_state.document_id:
-        st.markdown("### Current document")
-        with st.container(border=True):
-            st.write(st.session_state.filename)
-            st.caption(f"Document ID: {st.session_state.document_id}")
+    with center_col:
+        st.markdown('<div class="landing-wrap">', unsafe_allow_html=True)
+        st.markdown('<div class="landing-badge">📘 Study Buddy</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<h1 class="landing-title">Hey, let’s start by uploading your study document.</h1>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<p class="landing-subtitle">Upload your notes first. Open the sidebar anytime if you want to adjust learner type, difficulty, theme, session length, or reading controls.</p>',
+            unsafe_allow_html=True,
+        )
 
+        uploaded_file = st.file_uploader(
+            "Upload a PDF, TXT, or image",
+            type=["pdf", "txt", "png", "jpg", "jpeg"],
+            label_visibility="collapsed",
+        )
+
+        st.markdown(
+            '<div class="landing-helper">Need to customize things first? Use the top-left arrow to open settings.</div>',
+            unsafe_allow_html=True,
+        )
+
+        if uploaded_file is not None:
+            if st.button("Upload study document", use_container_width=True):
+                try:
+                    with st.spinner("Uploading and extracting text..."):
+                        result = upload_document(uploaded_file)
+                    st.session_state.document_id = result["document_id"]
+                    st.session_state.filename = result["filename"]
+                    st.session_state.session_data = None
+                    st.session_state.mode_data = None
+                    st.session_state.last_mode = None
+                    st.session_state.adhd_step_index = 0
+                    reset_timer()
+                    st.rerun()
+                except RequestException as e:
+                    st.error(f"Upload failed: {e}")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.stop()
+
+
+_, main_col, _ = st.columns([0.8, 2.4, 0.8])
+
+with main_col:
+    top_left, top_right = st.columns([1, 1])
+
+    with top_left:
+        st.markdown("## 📘 Study Buddy")
+        if st.session_state.filename:
+            st.caption(f"Working on: {st.session_state.filename}")
+
+    with top_right:
+        st.markdown('<div class="top-actions-space"></div>', unsafe_allow_html=True)
+        if st.button("← Back to upload", use_container_width=True):
+            reset_workspace()
+            st.rerun()
+
+    st.markdown("### Study Session")
+
+    generate_col, mode_col = st.columns([1.2, 1])
+
+    with generate_col:
         if st.button("Generate study session", use_container_width=True):
             try:
                 with st.spinner("Building session..."):
@@ -224,63 +333,63 @@ with left:
                 st.session_state.session_data = data["session"]
                 st.session_state.mode_data = None
                 st.session_state.last_mode = "session"
+                st.session_state.adhd_step_index = 0
                 reset_timer()
                 st.success("Session generated.")
             except RequestException as e:
                 st.error(f"Session generation failed: {e}")
 
-        st.markdown("### Timer Controls")
-        timer_col1, timer_col2, timer_col3 = st.columns(3)
-
-        session_ready = st.session_state.session_data is not None and st.session_state.last_mode == "session"
-
-        with timer_col1:
-            if st.button("Start", use_container_width=True, disabled=not session_ready):
-                start_timer(estimated_minutes)
-
-        with timer_col2:
-            if st.button("Pause", use_container_width=True, disabled=not st.session_state.timer_running):
-                pause_timer()
-
-        with timer_col3:
-            if st.button("Reset", use_container_width=True):
-                reset_timer()
-
-        if not session_ready:
-            st.caption("Generate a study session before starting the timer.")
-
-        st.markdown("### Quick study modes")
+    with mode_col:
         mode = st.selectbox(
-            "Choose a mode",
-            ["summary", "simplified", "key_terms", "flashcards", "quiz", "study_guide"]
+            "Quick mode",
+            ["summary", "simplified", "key_terms", "flashcards", "quiz", "study_guide"],
+            label_visibility="collapsed"
         )
 
-        if st.button("Run selected mode", use_container_width=True):
-            try:
-                with st.spinner(f"Generating {mode}..."):
-                    data = process_document_mode(
-                        st.session_state.document_id,
-                        mode,
-                        learner_type,
-                        difficulty
-                    )
-                st.session_state.mode_data = data
-                st.session_state.session_data = None
-                st.session_state.last_mode = mode
-                reset_timer()
-                st.success(f"{mode.replace('_', ' ').title()} ready.")
-            except RequestException as e:
-                st.error(f"Mode generation failed: {e}")
+    if st.button(f"Run {mode.replace('_', ' ')}", use_container_width=True):
+        try:
+            with st.spinner(f"Generating {mode}..."):
+                data = process_document_mode(
+                    st.session_state.document_id,
+                    mode,
+                    learner_type,
+                    difficulty
+                )
+            st.session_state.mode_data = data
+            st.session_state.session_data = None
+            st.session_state.last_mode = mode
+            st.session_state.adhd_step_index = 0
+            reset_timer()
+            st.success(f"{mode.replace('_', ' ').title()} ready.")
+        except RequestException as e:
+            st.error(f"Mode generation failed: {e}")
 
-with right:
-    st.markdown("## Output")
+    st.markdown("### Timer")
+
+    timer_col1, timer_col2, timer_col3 = st.columns(3)
+    session_ready = st.session_state.session_data is not None and st.session_state.last_mode == "session"
+
+    with timer_col1:
+        if st.button("Start", use_container_width=True, disabled=not session_ready):
+            start_timer(estimated_minutes)
+
+    with timer_col2:
+        if st.button("Pause", use_container_width=True, disabled=not st.session_state.timer_running):
+            pause_timer()
+
+    with timer_col3:
+        if st.button("Reset", use_container_width=True):
+            reset_timer()
+
+    if not session_ready:
+        st.caption("Generate a study session before starting the timer.")
 
     if st.session_state.timer_running and st.session_state.timer_start_time is not None:
         elapsed = int(time.time() - st.session_state.timer_start_time)
         remaining = max(0, st.session_state.timer_duration - elapsed)
         st.session_state.time_remaining = remaining
 
-        st.markdown("## ⏱️ Session Timer")
+        st.markdown("### ⏱️ Session Timer")
         minutes = remaining // 60
         seconds = remaining % 60
         st.metric("Time Remaining", f"{minutes:02d}:{seconds:02d}")
@@ -296,7 +405,7 @@ with right:
             st.error("⏰ Time's up!")
 
     elif st.session_state.timer_paused:
-        st.markdown("## ⏱️ Session Timer")
+        st.markdown("### ⏱️ Session Timer")
         minutes = st.session_state.time_remaining // 60
         seconds = st.session_state.time_remaining % 60
         st.metric("Time Remaining", f"{minutes:02d}:{seconds:02d}")
@@ -307,20 +416,32 @@ with right:
             st.progress(min(max(elapsed_fraction, 0.0), 1.0))
 
     elif st.session_state.timer_duration > 0 and st.session_state.time_remaining == 0:
-        st.markdown("## ⏱️ Session Timer")
+        st.markdown("### ⏱️ Session Timer")
         st.metric("Time Remaining", "00:00")
         st.progress(1.0)
         st.success("Session complete 🎉")
         st.info("Nice work. Review your flashcards or try the quiz next.")
 
+    st.markdown("### Output")
+
     if st.session_state.last_mode == "session" and st.session_state.session_data:
-        render_session(st.session_state.session_data, learner_type, theme)
-    elif st.session_state.mode_data and st.session_state.last_mode:
-        render_mode_output(st.session_state.mode_data, st.session_state.last_mode, learner_type, theme)
-    else:
-        st.info(
-            "Upload notes, save the document, then generate a study session or run a study mode."
+        render_session(
+            st.session_state.session_data,
+            learner_type,
+            theme,
+            reading_cfg,
+            st.session_state.adhd_step_index
         )
+    elif st.session_state.mode_data and st.session_state.last_mode:
+        render_mode_output(
+            st.session_state.mode_data,
+            st.session_state.last_mode,
+            learner_type,
+            theme,
+            reading_cfg
+        )
+    else:
+        st.info("Generate a study session or run a study mode to see your output here.")
 
 if st.session_state.timer_running:
     time.sleep(1)
