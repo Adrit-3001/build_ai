@@ -321,20 +321,6 @@ div[data-testid="stExpander"] {
     word-spacing: 0.06em;
 }
 
-.reader-tint-default { }
-.reader-tint-warm {
-    background: linear-gradient(135deg, rgba(120,80,20,0.16), rgba(180,140,70,0.10)) !important;
-    border-color: rgba(218, 181, 114, 0.28) !important;
-}
-.reader-tint-cool {
-    background: linear-gradient(135deg, rgba(50,90,120,0.18), rgba(80,130,160,0.10)) !important;
-    border-color: rgba(125, 180, 220, 0.28) !important;
-}
-.reader-tint-soft-dark {
-    background: linear-gradient(135deg, rgba(45,55,70,0.25), rgba(30,40,55,0.18)) !important;
-    border-color: rgba(140, 155, 180, 0.22) !important;
-}
-
 .visual-panel-playful {
     background: linear-gradient(135deg, rgba(168,85,247,0.16), rgba(59,130,246,0.12));
     border: 1px solid rgba(196,181,253,0.24);
@@ -359,6 +345,20 @@ div[data-testid="stExpander"] {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.08);
     font-style: italic;
+}
+
+.reader-tint-default { }
+.reader-tint-warm {
+    background: linear-gradient(135deg, rgba(120,80,20,0.16), rgba(180,140,70,0.10)) !important;
+    border-color: rgba(218, 181, 114, 0.28) !important;
+}
+.reader-tint-cool {
+    background: linear-gradient(135deg, rgba(50,90,120,0.18), rgba(80,130,160,0.10)) !important;
+    border-color: rgba(125, 180, 220, 0.28) !important;
+}
+.reader-tint-soft-dark {
+    background: linear-gradient(135deg, rgba(45,55,70,0.25), rgba(30,40,55,0.18)) !important;
+    border-color: rgba(140, 155, 180, 0.22) !important;
 }
 
 .focus-banner {
@@ -388,25 +388,6 @@ div[data-testid="stExpander"] {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.08);
     line-height: 1.7;
-}
-
-.read-aloud-wrap {
-    margin-top: 0.4rem;
-    margin-bottom: 0.8rem;
-}
-
-.read-aloud-btn {
-    border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.05);
-    color: white;
-    padding: 0.45rem 0.7rem;
-    border-radius: 12px;
-    font-size: 0.92rem;
-    cursor: pointer;
-}
-
-.read-aloud-btn:hover {
-    background: rgba(255,255,255,0.08);
 }
 
 div[data-testid="metric-container"] {
@@ -439,18 +420,6 @@ div[data-testid="metric-container"] {
     min-height: 42px !important;
 }
 
-.reader-panel {
-    max-width: var(--reader-max-width);
-    font-size: var(--reader-text-size);
-    line-height: var(--reader-line-height);
-}
-
-.reader-panel p {
-    margin-top: 0;
-    margin-bottom: var(--reader-paragraph-gap);
-    text-align: left;
-}
-
 .dyslexic-font-mode .reader-panel,
 .dyslexic-font-mode .focus-item-card,
 .dyslexic-font-mode .stMarkdown,
@@ -461,48 +430,144 @@ div[data-testid="metric-container"] {
     word-spacing: 0.08em;
 }
 
-.reader-tint-default { }
-
-.reader-tint-warm {
-    background: linear-gradient(135deg, rgba(125, 100, 40, 0.16), rgba(185, 160, 110, 0.10)) !important;
-    border-color: rgba(225, 200, 140, 0.28) !important;
-}
-
-.reader-tint-cool {
-    background: linear-gradient(135deg, rgba(55, 90, 120, 0.18), rgba(90, 135, 165, 0.10)) !important;
-    border-color: rgba(145, 190, 225, 0.28) !important;
-}
-
-.reader-tint-soft-dark {
-    background: linear-gradient(135deg, rgba(42, 48, 60, 0.26), rgba(30, 38, 52, 0.18)) !important;
-    border-color: rgba(145, 155, 175, 0.24) !important;
-}
-
-.focus-banner {
-    border-radius: 14px;
-    padding: 10px 14px;
-    margin-bottom: 14px;
-    background: rgba(245, 158, 11, 0.14);
-    border: 1px solid rgba(251,191,36,0.28);
-    font-weight: 700;
-}
-
-.focus-step-card {
+/* ---------- NEW: ALL MODES USE PLAYFUL CARDS ---------- */
+.mode-card {
     border-radius: 18px;
     padding: 16px 18px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+}
+
+.mode-card-title {
+    font-size: 1.02rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.mode-card-body {
+    opacity: 0.98;
+    line-height: 1.8;
+}
+
+.mode-card-body p {
+    margin: 0;
+}
+
+.mode-card-list {
+    margin: 0 0 12px 1rem;
+    padding: 0;
+}
+
+.mode-card-list li {
+    margin-bottom: 8px;
+    line-height: 1.7;
+}
+
+.mode-card-answer {
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.10);
+}
+
+.quiz-card .mode-card-title {
     margin-bottom: 12px;
 }
 
-.focus-step-title {
-    font-size: 1.05rem;
-    font-weight: 800;
+.visual-panel-playful .mode-card-title {
+    letter-spacing: 0.01em;
 }
 
-.focus-item-card {
-    border-radius: 14px;
+.auditory-panel-playful .mode-card-body,
+.auditory-panel-classic .mode-card-body {
+    font-style: italic;
+}
+
+/* slightly richer cards in playful mode */
+.theme-playful .mode-card {
+    box-shadow: 0 10px 26px rgba(0,0,0,0.18);
+}
+
+/* make flashcards / key terms / guide cards feel more polished */
+.theme-playful .mode-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.03), transparent 40%);
+    pointer-events: none;
+    border-radius: inherit;
+}
+
+/* keep focus cards aligned with the new card system */
+.focus-step-card {
+    background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(239,68,68,0.13));
+    border: 1px solid rgba(251,191,36,0.30);
+    box-shadow: 0 8px 24px rgba(245,158,11,0.12);
+}
+
+/* flashcards: keep classic expander look, only style the answer area */
+.flashcard-answer-card {
+    border-radius: 16px;
     padding: 14px 16px;
+    margin-top: 6px;
     margin-bottom: 10px;
-    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(8px);
+}
+
+.flashcard-answer-body p {
+    margin: 0;
+    line-height: 1.8;
+}
+
+/* slightly softer than the full mode cards */
+.flashcard-answer-card.general-panel-playful {
+    background: linear-gradient(135deg, rgba(37,99,235,0.16), rgba(20,184,166,0.11));
+    border: 1px solid rgba(96,165,250,0.24);
+    box-shadow: 0 8px 20px rgba(37,99,235,0.10);
+}
+
+.flashcard-answer-card.adhd-panel-playful {
+    background: linear-gradient(135deg, rgba(245,158,11,0.14), rgba(239,68,68,0.10));
+    border: 1px solid rgba(251,191,36,0.24);
+    box-shadow: 0 8px 20px rgba(245,158,11,0.10);
+}
+
+.flashcard-answer-card.dyslexic-panel-playful {
+    background: linear-gradient(135deg, rgba(34,197,94,0.14), rgba(45,212,191,0.10));
+    border: 1px solid rgba(74,222,128,0.22);
+    box-shadow: 0 8px 20px rgba(34,197,94,0.09);
+}
+
+.flashcard-answer-card.visual-panel-playful {
+    background: linear-gradient(135deg, rgba(168,85,247,0.14), rgba(59,130,246,0.10));
+    border: 1px solid rgba(196,181,253,0.22);
+    box-shadow: 0 8px 20px rgba(168,85,247,0.09);
+}
+
+.flashcard-answer-card.auditory-panel-playful {
+    background: linear-gradient(135deg, rgba(236,72,153,0.14), rgba(14,165,233,0.10));
+    border: 1px solid rgba(244,114,182,0.22);
+    box-shadow: 0 8px 20px rgba(236,72,153,0.09);
+}
+
+/* classic fallback */
+.flashcard-answer-card.general-panel-classic,
+.flashcard-answer-card.adhd-panel-classic,
+.flashcard-answer-card.dyslexic-panel-classic,
+.flashcard-answer-card.visual-panel-classic,
+.flashcard-answer-card.auditory-panel-classic {
+    background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
+}
+
+.quiz-answer-reveal {
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-top: 6px;
+    margin-bottom: 4px;
     line-height: 1.7;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
 }

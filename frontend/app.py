@@ -384,7 +384,7 @@ with main_col:
                     st.session_state.last_mode = "session"
                     st.session_state.adhd_step_index = 0
                     reset_timer()
-                    st.success("Session generated.")
+                    # st.success("Session generated.")
                 except RequestException as e:
                     st.error(f"Session generation failed: {e}")
 
