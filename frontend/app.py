@@ -37,6 +37,41 @@ def learner_mode_description(learner_type: str) -> str:
     return descriptions.get(learner_type, "Adaptive study support.")
 
 
+def apply_theme(theme: str):
+    theme_class = f"theme-{theme}"
+    st.markdown(
+        f"""
+        <script>
+        const root = window.parent.document.documentElement;
+        root.classList.remove('theme-playful', 'theme-classic');
+        root.classList.add('{theme_class}');
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(f'<div class="{theme_class}"></div>', unsafe_allow_html=True)
+
+
+def render_background_fx(theme: str):
+    if theme != "playful":
+        return
+
+    st.markdown(
+        """
+        <div class="bg-fx-wrap" aria-hidden="true">
+            <div class="bg-orb orb-1"></div>
+            <div class="bg-orb orb-2"></div>
+            <div class="bg-orb orb-3"></div>
+            <div class="bg-shape shape-triangle"></div>
+            <div class="bg-shape shape-square"></div>
+            <div class="bg-shape shape-ring"></div>
+            <div class="bg-dot-grid"></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 load_css()
 
 if "document_id" not in st.session_state:
@@ -99,12 +134,22 @@ def pause_timer():
     st.session_state.timer_start_time = None
 
 
+with st.sidebar:
+    st.markdown("## Settings")
+
+    theme = st.selectbox(
+        "Theme",
+        ["playful", "classic"],
+        index=0
+    )
+
+apply_theme(theme)
+render_background_fx(theme)
+
 st.title("📘 Study Buddy")
 st.caption("Turn your notes into a cleaner, more adaptive study experience.")
 
 with st.sidebar:
-    st.markdown("## Settings")
-
     learner_type = st.selectbox(
         "Learner type",
         ["general", "adhd", "dyslexic", "visual", "auditory"],
@@ -230,8 +275,6 @@ with left:
 with right:
     st.markdown("## Output")
 
-    remaining = None
-
     if st.session_state.timer_running and st.session_state.timer_start_time is not None:
         elapsed = int(time.time() - st.session_state.timer_start_time)
         remaining = max(0, st.session_state.timer_duration - elapsed)
@@ -271,9 +314,9 @@ with right:
         st.info("Nice work. Review your flashcards or try the quiz next.")
 
     if st.session_state.last_mode == "session" and st.session_state.session_data:
-        render_session(st.session_state.session_data, learner_type)
+        render_session(st.session_state.session_data, learner_type, theme)
     elif st.session_state.mode_data and st.session_state.last_mode:
-        render_mode_output(st.session_state.mode_data, st.session_state.last_mode, learner_type)
+        render_mode_output(st.session_state.mode_data, st.session_state.last_mode, learner_type, theme)
     else:
         st.info(
             "Upload notes, save the document, then generate a study session or run a study mode."

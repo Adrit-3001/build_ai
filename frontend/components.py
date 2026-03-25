@@ -37,11 +37,16 @@ def adapt_text_for_display(text: str, learner_type: str) -> str:
     return text
 
 
-def render_mode_banner(learner_type: str):
+def theme_badge(theme: str) -> str:
+    return "Playful Theme" if theme == "playful" else "Classic Theme"
+
+
+def render_mode_banner(learner_type: str, theme: str):
+    theme_class = "mode-banner-playful" if theme == "playful" else "mode-banner-classic"
     st.markdown(
         f"""
-        <div class="mode-banner">
-            <div class="mode-banner-title">{learner_badge(learner_type)}</div>
+        <div class="mode-banner {theme_class}">
+            <div class="mode-banner-title">{learner_badge(learner_type)} • {theme_badge(theme)}</div>
             <div class="mode-banner-subtitle">This view is adapted for the selected learning style.</div>
         </div>
         """,
@@ -49,11 +54,12 @@ def render_mode_banner(learner_type: str):
     )
 
 
-def render_result_panel(text: str, learner_type: str):
+def render_result_panel(text: str, learner_type: str, theme: str):
     display_text = adapt_text_for_display(text, learner_type)
+    panel_theme = "general-panel-playful" if theme == "playful" else "general-panel-classic"
     st.markdown(
         f"""
-        <div class="reading-panel general-panel">
+        <div class="reading-panel {panel_theme}">
             {display_text}
         </div>
         """,
@@ -61,8 +67,8 @@ def render_result_panel(text: str, learner_type: str):
     )
 
 
-def render_session(session, learner_type: str):
-    render_mode_banner(learner_type)
+def render_session(session, learner_type: str, theme: str):
+    render_mode_banner(learner_type, theme)
 
     st.subheader(session["title"])
     col1, col2, col3 = st.columns(3)
@@ -77,15 +83,19 @@ def render_session(session, learner_type: str):
 
     overview = session["overview"]
     if learner_type == "dyslexic":
-        st.markdown(f'<div class="reading-panel dyslexic-panel">{adapt_text_for_display(overview, learner_type)}</div>', unsafe_allow_html=True)
+        theme_class = "dyslexic-panel-playful" if theme == "playful" else "dyslexic-panel-classic"
+        st.markdown(f'<div class="reading-panel {theme_class}">{adapt_text_for_display(overview, learner_type)}</div>', unsafe_allow_html=True)
     elif learner_type == "adhd":
-        st.markdown(f'<div class="reading-panel adhd-panel">{adapt_text_for_display(overview, learner_type)}</div>', unsafe_allow_html=True)
+        theme_class = "adhd-panel-playful" if theme == "playful" else "adhd-panel-classic"
+        st.markdown(f'<div class="reading-panel {theme_class}">{adapt_text_for_display(overview, learner_type)}</div>', unsafe_allow_html=True)
     elif learner_type == "auditory":
-        st.markdown(f'<div class="reading-panel auditory-panel">{adapt_text_for_display(overview, learner_type)}</div>', unsafe_allow_html=True)
+        theme_class = "auditory-panel-playful" if theme == "playful" else "auditory-panel-classic"
+        st.markdown(f'<div class="reading-panel {theme_class}">{adapt_text_for_display(overview, learner_type)}</div>', unsafe_allow_html=True)
     elif learner_type == "visual":
-        st.markdown(f'<div class="reading-panel visual-panel">{overview}</div>', unsafe_allow_html=True)
+        theme_class = "visual-panel-playful" if theme == "playful" else "visual-panel-classic"
+        st.markdown(f'<div class="reading-panel {theme_class}">{overview}</div>', unsafe_allow_html=True)
     else:
-        st.info(overview)
+        render_result_panel(overview, learner_type, theme)
 
     if session.get("blocks"):
         st.markdown("### Session Flow")
@@ -117,15 +127,15 @@ def render_session(session, learner_type: str):
                 st.caption(f"Answer: {adapt_text_for_display(q['answer'], learner_type)}")
 
 
-def render_mode_output(data, mode, learner_type: str):
-    render_mode_banner(learner_type)
+def render_mode_output(data, mode, learner_type: str, theme: str):
+    render_mode_banner(learner_type, theme)
 
     st.markdown(f"## {mode.replace('_', ' ').title()}")
 
     result = data.get("result")
     if isinstance(result, str) and result.strip():
         if mode in {"summary", "simplified"}:
-            render_result_panel(result, learner_type)
+            render_result_panel(result, learner_type, theme)
         else:
             st.write(adapt_text_for_display(result, learner_type))
 
