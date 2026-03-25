@@ -222,6 +222,7 @@ def render_quiz_card(question: str, options: list[str], answer: str, learner_typ
             unsafe_allow_html=True,
         )
 
+
 def render_flashcard(question: str, answer: str, learner_type: str, theme: str, reading_cfg: dict, idx: int, prefix: str):
     panel_theme = get_panel_theme_class(learner_type, theme)
     tint_class = ""
@@ -261,7 +262,9 @@ def render_focus_block(block: dict, learner_type: str, theme: str, reading_cfg: 
     combined_audio = [block_title]
 
     for item in content[:3]:
-        display = adapt_text_for_display(item, learner_type)
+        display = item.strip() if isinstance(item, str) else ""
+        if not display:
+            continue
         combined_audio.append(display)
         safe_display = display.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         items_html += f'<div class="focus-item-card">{safe_display}</div>'
@@ -383,6 +386,18 @@ def render_session(session, learner_type: str, theme: str, reading_cfg: dict, ad
 
     st.markdown("### Overview")
     render_themed_text_panel(overview, learner_type, theme, reading_cfg)
+
+    if session.get("blocks"):
+        st.markdown("### Session Flow")
+        for block in session["blocks"]:
+            render_themed_info_card(
+                title=block["title"],
+                body="\n".join(block["content"]),
+                learner_type=learner_type,
+                theme=theme,
+                reading_cfg=reading_cfg,
+                audio_label="Listen to section",
+            )
 
     if session.get("flashcards"):
         # st.markdown("### Flashcards")

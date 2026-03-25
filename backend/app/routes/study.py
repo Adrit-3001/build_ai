@@ -28,7 +28,7 @@ from app.utils.study_tools import (
     extract_key_terms,
     build_study_guide,
 )
-from app.utils.session_tools import build_session
+from app.utils.session_tools import build_session, ensure_rich_session
 from app.utils.llm_tools import smart_generate
 from app.utils.tts_tools import synthesize_to_file
 
@@ -160,6 +160,17 @@ def build_response(
         if smart is not None:
             try:
                 smart_result = smart.get("result", "")
+
+                repaired_session = None
+                if mode == "session":
+                    repaired_session = ensure_rich_session(
+                        smart.get("session"),
+                        text=cleaned,
+                        learner_type=learner_type,
+                        difficulty=difficulty,
+                        estimated_minutes=estimated_minutes,
+                    )
+
                 if mode in {"summary", "simplified"} and (not isinstance(smart_result, str) or not smart_result.strip()):
                     raise ValueError("Empty smart result for summary/simplified.")
 
@@ -172,7 +183,7 @@ def build_response(
                     quiz=smart.get("quiz"),
                     key_terms=smart.get("key_terms"),
                     study_guide=smart.get("study_guide"),
-                    session=smart.get("session"),
+                    session=repaired_session if mode == "session" else smart.get("session"),
                 )
             except Exception as e:
                 print(f"[SMART_RESPONSE_VALIDATION_ERROR] {type(e).__name__}: {e}")
