@@ -270,7 +270,7 @@ with st.sidebar:
             "Dark Reader": "soft-dark",
         }
         reader_tint = preset_map[reader_preset]
-        dyslexic_font_mode = st.toggle("Use dyslexia-friendly font style", value=True)
+        # dyslexic_font_mode = st.toggle("Use dyslexia-friendly font style", value=True)
 
     st.markdown("### Read aloud")
     read_aloud_enabled = st.toggle("Enable generated audio", value=True)
@@ -301,7 +301,7 @@ if st.session_state.document_id is None:
 
     with center_col:
         st.markdown('<div class="landing-wrap">', unsafe_allow_html=True)
-        st.markdown('<div class="landing-badge">📘 Study Buddy</div>', unsafe_allow_html=True)
+        st.markdown('<div class="landing-badge"> Study Companion</div>', unsafe_allow_html=True)
         st.markdown(
             '<h1 class="landing-title">Hey, let’s start by uploading your study document.</h1>',
             unsafe_allow_html=True,
