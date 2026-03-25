@@ -1,7 +1,7 @@
 .block-container {
     padding-top: 2rem;
     padding-bottom: 2rem;
-    max-width: 1100px;
+    max-width: 1180px;
 }
 
 h1, h2, h3 {
@@ -12,15 +12,11 @@ h1, h2, h3 {
     border-right: 1px solid rgba(255,255,255,0.08);
 }
 
-div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stMarkdownContainer"]) {
-    border-radius: 14px;
-}
-
 .stButton > button {
     width: 100%;
     border-radius: 12px;
     font-weight: 600;
-    padding: 0.6rem 1rem;
+    padding: 0.65rem 1rem;
 }
 
 .stDownloadButton > button {
@@ -30,4 +26,54 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stMarkdownContai
 div[data-testid="stExpander"] {
     border-radius: 14px;
     overflow: hidden;
+}
+
+.mode-banner {
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+}
+
+.mode-banner-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.mode-banner-subtitle {
+    font-size: 0.9rem;
+    opacity: 0.78;
+}
+
+.reading-panel {
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    line-height: 1.75;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+.adhd-panel {
+    background: rgba(255,255,255,0.03);
+    font-size: 1.05rem;
+}
+
+.dyslexic-panel {
+    background: rgba(255,255,255,0.04);
+    font-size: 1.08rem;
+    line-height: 1.95;
+    letter-spacing: 0.02em;
+    word-spacing: 0.06em;
+}
+
+.visual-panel {
+    background: rgba(255,255,255,0.03);
+    border-left: 4px solid rgba(255,255,255,0.22);
+}
+
+.auditory-panel {
+    background: rgba(255,255,255,0.03);
+    font-style: italic;
 }

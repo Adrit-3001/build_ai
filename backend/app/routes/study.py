@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.config import UPLOAD_DIR, ALLOWED_EXTENSIONS
+from app.config import UPLOAD_DIR, ALLOWED_EXTENSIONS, SMART_MODE
 from app.schemas import (
     StudyRequest,
     StudyResponse,
@@ -11,6 +11,11 @@ from app.schemas import (
     ProcessSavedDocumentRequest,
     SessionRequest,
     SavedDocumentSessionRequest,
+    StudySession,
+    Flashcard,
+    MultipleChoiceQuestion,
+    KeyTerm,
+    StudyGuideSection,
 )
 from app.storage import DOCUMENT_STORE
 from app.utils.file_parser import extract_text
@@ -22,11 +27,64 @@ from app.utils.study_tools import (
     build_study_guide,
 )
 from app.utils.session_tools import build_session
+from app.utils.llm_tools import smart_generate
 
 router = APIRouter(prefix="/study", tags=["study"])
 
 
-def build_response(cleaned: str, mode: str, difficulty: str, learner_type: str) -> StudyResponse:
+def safe_study_response(
+    cleaned: str,
+    mode: str,
+    learner_type: str,
+    result: str,
+    flashcards=None,
+    quiz=None,
+    key_terms=None,
+    study_guide=None,
+    session=None,
+) -> StudyResponse:
+    validated_flashcards = None
+    validated_quiz = None
+    validated_key_terms = None
+    validated_study_guide = None
+    validated_session = None
+
+    if flashcards is not None:
+        validated_flashcards = [Flashcard(**item) if isinstance(item, dict) else item for item in flashcards]
+
+    if quiz is not None:
+        validated_quiz = [MultipleChoiceQuestion(**item) if isinstance(item, dict) else item for item in quiz]
+
+    if key_terms is not None:
+        validated_key_terms = [KeyTerm(**item) if isinstance(item, dict) else item for item in key_terms]
+
+    if study_guide is not None:
+        validated_study_guide = [StudyGuideSection(**item) if isinstance(item, dict) else item for item in study_guide]
+
+    if session is not None:
+        validated_session = StudySession(**session) if isinstance(session, dict) else session
+
+    return StudyResponse(
+        original_length=len(cleaned),
+        extracted_text_preview=cleaned[:300],
+        mode=mode,
+        learner_type=learner_type,
+        result=result,
+        flashcards=validated_flashcards,
+        quiz=validated_quiz,
+        key_terms=validated_key_terms,
+        study_guide=validated_study_guide,
+        session=validated_session,
+    )
+
+
+def fallback_response(
+    cleaned: str,
+    mode: str,
+    difficulty: str,
+    learner_type: str,
+    estimated_minutes: int = 5,
+) -> StudyResponse:
     flashcards = None
     quiz = None
     key_terms = None
@@ -55,15 +113,14 @@ def build_response(cleaned: str, mode: str, difficulty: str, learner_type: str) 
             text=cleaned,
             learner_type=learner_type,
             difficulty=difficulty,
-            estimated_minutes=5,
+            estimated_minutes=estimated_minutes,
         )
         result = "Study session generated successfully."
     else:
         raise HTTPException(status_code=400, detail="Unsupported mode.")
 
-    return StudyResponse(
-        original_length=len(cleaned),
-        extracted_text_preview=cleaned[:300],
+    return safe_study_response(
+        cleaned=cleaned,
         mode=mode,
         learner_type=learner_type,
         result=result,
@@ -72,6 +129,52 @@ def build_response(cleaned: str, mode: str, difficulty: str, learner_type: str) 
         key_terms=key_terms,
         study_guide=study_guide,
         session=session,
+    )
+
+
+def build_response(
+    cleaned: str,
+    mode: str,
+    difficulty: str,
+    learner_type: str,
+    estimated_minutes: int = 5,
+) -> StudyResponse:
+    if SMART_MODE == "ollama":
+        smart = smart_generate(
+            text=cleaned,
+            mode=mode,
+            learner_type=learner_type,
+            difficulty=difficulty,
+            estimated_minutes=estimated_minutes,
+        )
+
+        if smart is not None:
+            try:
+                smart_result = smart.get("result", "")
+                if mode in {"summary", "simplified"} and (not isinstance(smart_result, str) or not smart_result.strip()):
+                    raise ValueError("Empty smart result for summary/simplified.")
+
+                return safe_study_response(
+                    cleaned=cleaned,
+                    mode=mode,
+                    learner_type=learner_type,
+                    result=smart_result if isinstance(smart_result, str) and smart_result.strip() else f"{mode} generated successfully.",
+                    flashcards=smart.get("flashcards"),
+                    quiz=smart.get("quiz"),
+                    key_terms=smart.get("key_terms"),
+                    study_guide=smart.get("study_guide"),
+                    session=smart.get("session"),
+                )
+            except Exception as e:
+                print(f"[SMART_RESPONSE_VALIDATION_ERROR] {type(e).__name__}: {e}")
+                print("[SMART_RESPONSE_FALLBACK] Falling back to heuristic pipeline.")
+
+    return fallback_response(
+        cleaned=cleaned,
+        mode=mode,
+        difficulty=difficulty,
+        learner_type=learner_type,
+        estimated_minutes=estimated_minutes,
     )
 
 
@@ -87,6 +190,7 @@ def process_text(payload: StudyRequest):
         mode=payload.mode,
         difficulty=payload.difficulty,
         learner_type=payload.learner_type,
+        estimated_minutes=5,
     )
 
 
@@ -123,6 +227,7 @@ async def upload_and_process(
             mode=mode,
             difficulty=difficulty,
             learner_type=learner_type,
+            estimated_minutes=5,
         )
 
     finally:
@@ -216,6 +321,7 @@ def process_saved_document(document_id: str, payload: ProcessSavedDocumentReques
         mode=payload.mode,
         difficulty=payload.difficulty,
         learner_type=payload.learner_type,
+        estimated_minutes=5,
     )
 
 
@@ -226,20 +332,12 @@ def create_session(payload: SessionRequest):
     if not cleaned:
         raise HTTPException(status_code=400, detail="Text is empty after cleaning.")
 
-    session = build_session(
-        text=cleaned,
-        learner_type=payload.learner_type,
-        difficulty=payload.difficulty,
-        estimated_minutes=payload.estimated_minutes,
-    )
-
-    return StudyResponse(
-        original_length=len(cleaned),
-        extracted_text_preview=cleaned[:300],
+    return build_response(
+        cleaned=cleaned,
         mode="session",
+        difficulty=payload.difficulty,
         learner_type=payload.learner_type,
-        result="Study session generated successfully.",
-        session=session,
+        estimated_minutes=payload.estimated_minutes,
     )
 
 
@@ -252,20 +350,12 @@ def create_session_from_document(document_id: str, payload: SavedDocumentSession
 
     cleaned = doc["text"]
 
-    session = build_session(
-        text=cleaned,
-        learner_type=payload.learner_type,
-        difficulty=payload.difficulty,
-        estimated_minutes=payload.estimated_minutes,
-    )
-
-    return StudyResponse(
-        original_length=len(cleaned),
-        extracted_text_preview=cleaned[:300],
+    return build_response(
+        cleaned=cleaned,
         mode="session",
+        difficulty=payload.difficulty,
         learner_type=payload.learner_type,
-        result="Study session generated successfully.",
-        session=session,
+        estimated_minutes=payload.estimated_minutes,
     )
 
 
