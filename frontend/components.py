@@ -19,6 +19,61 @@ def theme_badge(theme: str) -> str:
     return "Playful Theme" if theme == "playful" else "Classic Theme"
 
 
+def simplify_vocabulary_text(text: str) -> str:
+    if not isinstance(text, str):
+        return ""
+
+    replacements = {
+        "utilize": "use",
+        "facilitate": "help",
+        "approximately": "about",
+        "demonstrate": "show",
+        "obtain": "get",
+        "individuals": "people",
+        "additional": "extra",
+        "assistance": "help",
+        "modality": "format",
+        "modalities": "formats",
+        "neurodivergent": "students who process things differently",
+        "cognitive load": "mental effort",
+        "academic": "school",
+        "comprehension": "understanding",
+        "personalized": "tailored",
+        "adaptive": "flexible",
+        "subsequent": "next",
+        "prior": "earlier",
+        "therefore": "so",
+        "however": "but",
+        "approximately": "about",
+        "sufficient": "enough",
+        "complex": "complicated",
+        "concept": "idea",
+        "concepts": "ideas",
+        "implement": "carry out",
+        "implementation": "how it is built",
+        "derive": "work out",
+        "illustrate": "show",
+        "evaluate": "check",
+        "optimize": "improve",
+        "methodology": "method",
+        "parameter": "setting",
+        "parameters": "settings",
+    }
+
+    simplified = text
+    for hard, simple in replacements.items():
+        simplified = re.sub(rf"\b{re.escape(hard)}\b", simple, simplified, flags=re.IGNORECASE)
+
+    simplified = re.sub(r"\s+", " ", simplified).strip()
+    return simplified
+
+
+def maybe_simplify_text(text: str, reading_cfg: dict) -> str:
+    if reading_cfg.get("simplify_vocab", False):
+        return simplify_vocabulary_text(text)
+    return text
+
+
 def render_key_value(label, value):
     st.markdown(f"**{label}:** {value}")
 
@@ -36,9 +91,12 @@ def split_into_short_paragraphs(text: str, max_sentences_per_paragraph: int = 2)
     return "\n\n".join(groups)
 
 
-def adapt_text_for_display(text: str, learner_type: str) -> str:
+def adapt_text_for_display(text: str, learner_type: str, reading_cfg: dict | None = None) -> str:
     if not isinstance(text, str):
         return ""
+
+    if reading_cfg is not None:
+        text = maybe_simplify_text(text, reading_cfg)
 
     if learner_type == "adhd":
         sentences = re.split(r"(?<=[.!?])\s+", text.strip())
@@ -89,6 +147,7 @@ def render_audio_player(text: str, reading_cfg: dict, label: str = "Listen"):
 
     voice = reading_cfg.get("tts_voice", "en-US-AriaNeural")
     rate = reading_cfg.get("tts_rate", "+0%")
+    text = maybe_simplify_text(text, reading_cfg)
 
     base_key = f"{label}_{hash((text[:120], voice, rate))}"
     button_key = f"btn_{base_key}"
@@ -109,7 +168,7 @@ def render_audio_player(text: str, reading_cfg: dict, label: str = "Listen"):
 
 
 def render_themed_text_panel(text: str, learner_type: str, theme: str, reading_cfg: dict):
-    display_text = adapt_text_for_display(text, learner_type)
+    display_text = adapt_text_for_display(text, learner_type, reading_cfg)
     panel_theme = get_panel_theme_class(learner_type, theme)
 
     tint_class = ""
@@ -142,13 +201,16 @@ def render_themed_info_card(title: str, body: str, learner_type: str, theme: str
     panel_theme = get_panel_theme_class(learner_type, theme)
     tint_class = ""
 
+    title = maybe_simplify_text(title, reading_cfg)
+    body = maybe_simplify_text(body, reading_cfg)
+
     if learner_type == "dyslexic":
         tint = reading_cfg.get("reader_tint", "default")
         tint_class = f" reader-tint-{tint}"
 
     safe_title = title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_body = (
-        adapt_text_for_display(body, learner_type)
+        adapt_text_for_display(body, learner_type, reading_cfg)
         .replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
@@ -177,13 +239,13 @@ def render_quiz_card(question: str, options: list[str], answer: str, learner_typ
         tint = reading_cfg.get("reader_tint", "default")
         tint_class = f" reader-tint-{tint}"
 
-    safe_question = adapt_text_for_display(question, learner_type)
-    safe_answer = adapt_text_for_display(answer, learner_type)
+    safe_question = adapt_text_for_display(question, learner_type, reading_cfg)
+    safe_answer = adapt_text_for_display(answer, learner_type, reading_cfg)
 
     options_html = ""
     spoken_options = []
     for option in options:
-        safe_option = adapt_text_for_display(option, learner_type)
+        safe_option = adapt_text_for_display(option, learner_type, reading_cfg)
         spoken_options.append(safe_option)
         safe_option_html = (
             safe_option.replace("&", "&amp;")
@@ -209,7 +271,7 @@ def render_quiz_card(question: str, options: list[str], answer: str, learner_typ
     render_audio_player(
         f"{safe_question}. Options: {' '.join(spoken_options)}. Answer: {safe_answer}",
         reading_cfg,
-        "Listen to quiz"
+        "Listen to quiz",
     )
 
     with st.expander("Reveal answer"):
@@ -227,11 +289,14 @@ def render_flashcard(question: str, answer: str, learner_type: str, theme: str, 
     panel_theme = get_panel_theme_class(learner_type, theme)
     tint_class = ""
 
+    question = maybe_simplify_text(question, reading_cfg)
+    answer = maybe_simplify_text(answer, reading_cfg)
+
     if learner_type == "dyslexic":
         tint = reading_cfg.get("reader_tint", "default")
         tint_class = f" reader-tint-{tint}"
 
-    display_answer = adapt_text_for_display(answer, learner_type)
+    display_answer = adapt_text_for_display(answer, learner_type, reading_cfg)
     safe_answer = (
         display_answer.replace("&", "&amp;")
         .replace("<", "&lt;")
@@ -253,7 +318,7 @@ def render_flashcard(question: str, answer: str, learner_type: str, theme: str, 
 
 
 def render_focus_block(block: dict, learner_type: str, theme: str, reading_cfg: dict):
-    block_title = block.get("title", "Step")
+    block_title = maybe_simplify_text(block.get("title", "Step"), reading_cfg)
     content = block.get("content", [])
     panel_theme = get_panel_theme_class(learner_type, theme)
 
@@ -262,7 +327,7 @@ def render_focus_block(block: dict, learner_type: str, theme: str, reading_cfg: 
     combined_audio = [block_title]
 
     for item in content[:3]:
-        display = item.strip() if isinstance(item, str) else ""
+        display = maybe_simplify_text(item.strip() if isinstance(item, str) else "", reading_cfg)
         if not display:
             continue
         combined_audio.append(display)
@@ -337,7 +402,7 @@ def should_render_result_box(result: str) -> bool:
 def render_session(session, learner_type: str, theme: str, reading_cfg: dict, adhd_step_index: int = 0):
     render_mode_banner(learner_type, theme)
 
-    st.subheader(session["title"])
+    st.subheader(maybe_simplify_text(session["title"], reading_cfg))
     col1, col2, col3 = st.columns(3)
     with col1:
         render_key_value("Learner Type", session["learner_type"].title())
@@ -346,7 +411,7 @@ def render_session(session, learner_type: str, theme: str, reading_cfg: dict, ad
     with col3:
         render_key_value("Estimated Time", f"{session['estimated_minutes']} min")
 
-    overview = session.get("overview", "")
+    overview = maybe_simplify_text(session.get("overview", ""), reading_cfg)
     blocks = session.get("blocks", [])
 
     if learner_type == "adhd" and reading_cfg.get("focus_view", False):
@@ -475,7 +540,7 @@ def render_mode_output(data, mode, learner_type: str, theme: str, reading_cfg: d
         # st.markdown("### Study Guide")
         for section in data["study_guide"]:
             bullets = section["bullets"]
-            bullets_text = "\n".join([f"• {adapt_text_for_display(b, learner_type)}" for b in bullets])
+            bullets_text = "\n".join([f"• {adapt_text_for_display(b, learner_type, reading_cfg)}" for b in bullets])
             render_themed_info_card(
                 title=section["heading"],
                 body=bullets_text,

@@ -12,8 +12,8 @@ from components import render_session, render_mode_output
 
 
 st.set_page_config(
-    page_title="Study Buddy",
-    page_icon="📘",
+    page_title="Study Companion",
+    page_icon=":-)",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -233,6 +233,9 @@ with st.sidebar:
     st.markdown("### Learning mode description")
     st.info(learner_mode_description(learner_type))
 
+    simplify_vocab = st.toggle("Simplify vocabulary", value=False)
+    st.caption("Uses simpler wording across the displayed content for easier reading.")
+
     focus_view = False
     if learner_type == "adhd":
         focus_view = st.toggle("Use focus view", value=True)
@@ -277,15 +280,6 @@ with st.sidebar:
         index=0
     )
 
-    # st.markdown("---")
-    # st.markdown("### Backend status")
-    # try:
-    #     status = check_backend()
-    #     st.success(f"Connected: {status['status']}")
-    # except RequestException:
-    #     st.error("Backend not reachable")
-    #     st.stop()
-
     reading_cfg = {
         "text_size_px": text_size_px,
         "line_height": line_height,
@@ -296,6 +290,7 @@ with st.sidebar:
         "dyslexic_font_mode": dyslexic_font_mode,
         "read_aloud_enabled": read_aloud_enabled,
         "tts_voice": tts_voice,
+        "simplify_vocab": simplify_vocab,
     }
 
 apply_accessibility_settings(reading_cfg, learner_type)
@@ -391,7 +386,7 @@ with main_col:
         with action_col2:
             mode = st.selectbox(
                 "Quick mode",
-                ["summary", "simplified", "key_terms", "flashcards", "quiz", "study_guide"],
+                ["summary", "key_terms", "flashcards", "quiz", "study_guide"],
                 label_visibility="collapsed",
                 key="main_quick_mode"
             )
@@ -414,12 +409,8 @@ with main_col:
             except RequestException as e:
                 st.error(f"Mode generation failed: {e}")
 
-    # if learner_type == "adhd":
     with st.expander("Study tools", expanded=True):
         render_study_tools()
-    # else:
-    #     st.markdown("### Study tools")
-    #     render_study_tools()
 
     timer_open = st.session_state.timer_running or st.session_state.timer_paused or (
         st.session_state.timer_duration > 0 and st.session_state.time_remaining == 0
